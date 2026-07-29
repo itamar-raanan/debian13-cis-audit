@@ -1,0 +1,12 @@
+---
+cis_profile: level1_server
+cis_report_dir: "{{ playbook_dir }}/reports"
+cis_report_formats: [json, csv, html]
+cis_exceptions: {}
+cis_results: []
+
+cis_valid_profiles:
+  - level1_server
+  - level2_server
+  - level1_workstation
+  - level2_workstation

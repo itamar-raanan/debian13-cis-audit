@@ -1,0 +1,3 @@
+id,title,status,expected,actual
+{% for result in cis_results %}"{{ result.id }}","{{ result.title | replace('"', '""') }}","{{ result.status }}","{{ result.expected | replace('"', '""') }}","{{ result.actual | replace('"', '""') }}"
+{% endfor %}

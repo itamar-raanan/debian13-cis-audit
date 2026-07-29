@@ -1,0 +1,42 @@
+---
+- name: Validate audit configuration
+  ansible.builtin.include_tasks: preflight.yml
+  tags: [always]
+
+- name: Initialize audit result list
+  ansible.builtin.set_fact:
+    cis_results: []
+  changed_when: false
+  tags: [always]
+
+- name: Run Section 1 audits
+  ansible.builtin.include_tasks: section_1.yml
+  tags: [section_1]
+
+- name: Run Section 2 audits
+  ansible.builtin.include_tasks: section_2.yml
+  tags: [section_2]
+
+- name: Run Section 3 audits
+  ansible.builtin.include_tasks: section_3.yml
+  tags: [section_3]
+
+- name: Run Section 4 audits
+  ansible.builtin.include_tasks: section_4.yml
+  tags: [section_4]
+
+- name: Run Section 5 audits
+  ansible.builtin.include_tasks: section_5.yml
+  tags: [section_5]
+
+- name: Run Section 6
+  ansible.builtin.include_tasks: section_6.yml
+  tags: [section_6]
+
+- name: Run Section 7
+  ansible.builtin.include_tasks: section_7.yml
+  tags: [section_7]
+
+- name: Generate reports
+  ansible.builtin.include_tasks: report.yml
+  tags: [always, report]

@@ -1,0 +1,55 @@
+---
+- name: Ensure report directory exists on controller
+  ansible.builtin.file:
+    path: "{{ cis_report_dir }}"
+    state: directory
+    mode: '0750'
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Calculate summary
+  ansible.builtin.set_fact:
+    cis_summary:
+      total: "{{ cis_results | length }}"
+      pass: "{{ cis_results | selectattr('status', 'equalto', 'PASS') | list | length }}"
+      fail: "{{ cis_results | selectattr('status', 'equalto', 'FAIL') | list | length }}"
+      manual: "{{ cis_results | selectattr('status', 'equalto', 'MANUAL') | list | length }}"
+      excluded: "{{ cis_results | selectattr('status', 'equalto', 'EXCLUDED') | list | length }}"
+      error: "{{ cis_results | selectattr('status', 'equalto', 'ERROR') | list | length }}"
+  changed_when: false
+
+- name: Write JSON report
+  ansible.builtin.template:
+    src: report.json.j2
+    dest: "{{ cis_report_dir }}/{{ inventory_hostname }}-cis-debian13.json"
+    mode: '0640'
+  delegate_to: localhost
+  become: false
+  when: "'json' in cis_report_formats"
+
+- name: Write CSV report
+  ansible.builtin.template:
+    src: report.csv.j2
+    dest: "{{ cis_report_dir }}/{{ inventory_hostname }}-cis-debian13.csv"
+    mode: '0640'
+  delegate_to: localhost
+  become: false
+  when: "'csv' in cis_report_formats"
+
+- name: Write HTML report
+  ansible.builtin.template:
+    src: report.html.j2
+    dest: "{{ cis_report_dir }}/{{ inventory_hostname }}-cis-debian13.html"
+    mode: '0640'
+  delegate_to: localhost
+  become: false
+  when: "'html' in cis_report_formats"
+
+- name: Display audit summary
+  ansible.builtin.debug:
+    msg: >-
+      CIS audit for {{ inventory_hostname }}: total={{ cis_summary.total }},
+      pass={{ cis_summary.pass }}, fail={{ cis_summary.fail }},
+      manual={{ cis_summary.manual }}, excluded={{ cis_summary.excluded }},
+      error={{ cis_summary.error }}

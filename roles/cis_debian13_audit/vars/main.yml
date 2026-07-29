@@ -1,0 +1,7 @@
+---
+cis_benchmark:
+  title: CIS Debian Linux 13 Benchmark
+  version: v1.0.0
+  date: '2025-12-16'
+  target_distribution: Debian
+  target_major_version: '13'

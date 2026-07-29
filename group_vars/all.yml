@@ -1,0 +1,12 @@
+---
+cis_profile: level1_server
+cis_report_dir: "{{ playbook_dir }}/reports"
+cis_report_formats:
+  - json
+  - csv
+  - html
+
+# Controls accepted as documented exceptions. Example:
+# cis_exceptions:
+#   '1.1.1.6': 'OverlayFS is required by the container platform.'
+cis_exceptions: {}
