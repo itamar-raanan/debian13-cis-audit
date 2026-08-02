@@ -1,0 +1,11 @@
+# CIS Debian 13 manual or organization-specific actions
+
+Generated for {{ inventory_hostname }} at {{ ansible_date_time.iso8601 }}.
+
+The role intentionally does not automate the following controls without local design and approval:
+
+{% for control in cis_manual_controls %}
+- **{{ control.id }}** — {{ control.reason }}
+{% endfor %}
+
+Potentially disruptive control groups are disabled by default. Review defaults/main.yml before enabling them.

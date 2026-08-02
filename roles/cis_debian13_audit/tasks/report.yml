@@ -1,12 +1,17 @@
 ---
+- name: Generate report metadata
+  ansible.builtin.set_fact:
+    cis_report_hostname: "{{ ansible_hostname | default(inventory_hostname) }}"
+    cis_report_timestamp: "{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}"
+  changed_when: false
+
 - name: Ensure report directory exists on controller
   ansible.builtin.file:
-    path: "{{ cis_report_dir }}"
+    path: "{{ cis_report_dir }}/{{ cis_report_hostname }}"
     state: directory
     mode: '0750'
   delegate_to: localhost
   become: false
-  run_once: true
 
 - name: Calculate summary
   ansible.builtin.set_fact:
@@ -22,7 +27,7 @@
 - name: Write JSON report
   ansible.builtin.template:
     src: report.json.j2
-    dest: "{{ cis_report_dir }}/{{ inventory_hostname }}-cis-debian13.json"
+    dest: "{{ cis_report_dir }}/{{ cis_report_hostname }}/cis_report_{{ cis_report_hostname }}_{{ cis_report_timestamp }}.json"
     mode: '0640'
   delegate_to: localhost
   become: false
@@ -31,7 +36,7 @@
 - name: Write CSV report
   ansible.builtin.template:
     src: report.csv.j2
-    dest: "{{ cis_report_dir }}/{{ inventory_hostname }}-cis-debian13.csv"
+    dest: "{{ cis_report_dir }}/{{ cis_report_hostname }}/cis_report_{{ cis_report_hostname }}_{{ cis_report_timestamp }}.csv"
     mode: '0640'
   delegate_to: localhost
   become: false
@@ -40,7 +45,7 @@
 - name: Write HTML report
   ansible.builtin.template:
     src: report.html.j2
-    dest: "{{ cis_report_dir }}/{{ inventory_hostname }}-cis-debian13.html"
+    dest: "{{ cis_report_dir }}/{{ cis_report_hostname }}/cis_report_{{ cis_report_hostname }}_{{ cis_report_timestamp }}.html"
     mode: '0640'
   delegate_to: localhost
   become: false

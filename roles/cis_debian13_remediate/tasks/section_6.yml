@@ -1,0 +1,58 @@
+---
+- name: Install logging and auditing packages
+  ansible.builtin.apt:
+    name: [auditd, audispd-plugins, rsyslog]
+    state: present
+
+- name: Enable auditd and rsyslog
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop: [auditd, rsyslog]
+
+- name: Configure journald persistence and compression
+  ansible.builtin.copy:
+    dest: /etc/systemd/journald.conf.d/60-cis-debian13.conf
+    content: |
+      [Journal]
+      Storage=persistent
+      Compress=yes
+      ForwardToSyslog=yes
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart journald
+
+- name: Set auditd.conf controls
+  ansible.builtin.lineinfile:
+    path: /etc/audit/auditd.conf
+    regexp: "^\\s*{{ item.key }}\\s*="
+    line: "{{ item.key }} = {{ item.value }}"
+  loop:
+    - {key: max_log_file_action, value: keep_logs}
+    - {key: space_left_action, value: email}
+    - {key: action_mail_acct, value: root}
+    - {key: admin_space_left_action, value: halt}
+  notify: Restart auditd
+
+- name: Install baseline audit rules
+  ansible.builtin.template:
+    src: audit.rules.j2
+    dest: "{{ cis_audit_rules_file }}"
+    owner: root
+    group: root
+    mode: '0600'
+  notify: Load audit rules
+  when: (['level2_server', 'level2_workstation'] | intersect(cis_effective_profiles) | length) > 0
+
+- name: Secure log file permissions
+  ansible.builtin.file:
+    path: "{{ item }}"
+    owner: root
+    group: adm
+    mode: '0640'
+  loop:
+    - /var/log/auth.log
+    - /var/log/syslog
+  failed_when: false

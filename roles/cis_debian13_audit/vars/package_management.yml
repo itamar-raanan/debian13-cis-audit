@@ -12,7 +12,7 @@ cis_package_management_controls:
     assessment: Automated
     profiles: [level2_server, level2_workstation]
     expected: APT::Install-Recommends and APT::Install-Suggests are both 0.
-    audit: |
+    audit: !unsafe |
       recommends="$(apt-config dump 2>/dev/null | awk -F'"' '/^APT::Install-Recommends / {v=$2} END {print v}')"
       suggests="$(apt-config dump 2>/dev/null | awk -F'"' '/^APT::Install-Suggests / {v=$2} END {print v}')"
       printf 'Install-Recommends=%s\nInstall-Suggests=%s\n' "$recommends" "$suggests"
@@ -23,7 +23,7 @@ cis_package_management_controls:
     assessment: Automated
     profiles: [level1_server, level2_server]
     expected: Relevant GPG and Signed-By source files are root:root and mode 0644 or more restrictive.
-    audit: |
+    audit: !unsafe |
       bad=0
       while IFS= read -r -d '' file; do
         stat -Lc 'noncompliant: %n mode=%#a owner=%U group=%G' "$file"
@@ -42,7 +42,7 @@ cis_package_management_controls:
     assessment: Automated
     profiles: [level1_server, level2_server]
     expected: /etc/apt/trusted.gpg.d is root:root and mode 0755 or more restrictive.
-    audit: |
+    audit: !unsafe |
       path=/etc/apt/trusted.gpg.d
       [[ -d "$path" ]] || { echo "missing: $path"; exit 1; }
       read -r mode uid gid < <(stat -Lc '%a %u %g' "$path")
@@ -54,7 +54,7 @@ cis_package_management_controls:
     assessment: Automated
     profiles: [level1_server, level2_server]
     expected: /etc/apt/auth.conf.d is root:root and mode 0755 or more restrictive.
-    audit: |
+    audit: !unsafe |
       path=/etc/apt/auth.conf.d
       [[ -d "$path" ]] || { echo "missing: $path"; exit 1; }
       read -r mode uid gid < <(stat -Lc '%a %u %g' "$path")
@@ -66,7 +66,7 @@ cis_package_management_controls:
     assessment: Automated
     profiles: [level1_server, level1_workstation, level2_server, level2_workstation]
     expected: Files are root:root and mode 0640 or more restrictive.
-    audit: |
+    audit: !unsafe |
       bad=0
       while IFS= read -r -d '' file; do
         stat -Lc 'noncompliant: %n mode=%#a owner=%U group=%G' "$file"
@@ -79,7 +79,7 @@ cis_package_management_controls:
     assessment: Automated
     profiles: [level1_server, level2_server]
     expected: /usr/share/keyrings is root:root and mode 0755 or more restrictive.
-    audit: |
+    audit: !unsafe |
       path=/usr/share/keyrings
       [[ -d "$path" ]] || { echo "missing: $path"; exit 1; }
       read -r mode uid gid < <(stat -Lc '%a %u %g' "$path")
@@ -91,7 +91,7 @@ cis_package_management_controls:
     assessment: Automated
     profiles: [level1_server, level2_server]
     expected: /etc/apt/sources.list.d is root:root and mode 0755 or more restrictive.
-    audit: |
+    audit: !unsafe |
       path=/etc/apt/sources.list.d
       [[ -d "$path" ]] || { echo "missing: $path"; exit 1; }
       read -r mode uid gid < <(stat -Lc '%a %u %g' "$path")
@@ -103,7 +103,7 @@ cis_package_management_controls:
     assessment: Automated
     profiles: [level1_server, level2_server]
     expected: Files are root:root and mode 0644 or more restrictive.
-    audit: |
+    audit: !unsafe |
       bad=0
       while IFS= read -r -d '' file; do
         stat -Lc 'noncompliant: %n mode=%#a owner=%U group=%G' "$file"

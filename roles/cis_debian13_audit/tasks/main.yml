@@ -3,6 +3,12 @@
   ansible.builtin.include_tasks: preflight.yml
   tags: [always]
 
+- name: Show selected and effective CIS audit profiles
+  ansible.builtin.debug:
+    msg: "Selected profile={{ cis_profile }}; effective profiles={{ cis_effective_profiles | join(', ') }}"
+  changed_when: false
+  tags: [always]
+
 - name: Initialize audit result list
   ansible.builtin.set_fact:
     cis_results: []

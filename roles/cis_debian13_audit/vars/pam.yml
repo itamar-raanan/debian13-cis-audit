@@ -10,7 +10,7 @@ cis_pam_controls:
     title: Ensure latest version of pam is installed
     profiles: *all_profiles
     expected: libpam-runtime is installed and is not listed as upgradable
-    audit: |
+    audit: !unsafe |
       dpkg-query -W -f='${Status}\n' libpam-runtime 2>/dev/null | grep -q '^install ok installed$' || { echo 'libpam-runtime is not installed'; exit 1; }
       upgrades="$(apt list --upgradable 2>/dev/null | grep -P '^libpam-runtime/' || true)"
       [ -z "$upgrades" ] || { printf '%s\n' "$upgrades"; exit 1; }
@@ -20,7 +20,7 @@ cis_pam_controls:
     title: Ensure latest version of libpam-modules is installed
     profiles: *all_profiles
     expected: libpam-modules is installed and is not listed as upgradable
-    audit: |
+    audit: !unsafe |
       dpkg-query -W -f='${Status}\n' libpam-modules 2>/dev/null | grep -q '^install ok installed$' || { echo 'libpam-modules is not installed'; exit 1; }
       upgrades="$(apt list --upgradable 2>/dev/null | grep -P '^libpam-modules/' || true)"
       [ -z "$upgrades" ] || { printf '%s\n' "$upgrades"; exit 1; }
@@ -30,7 +30,7 @@ cis_pam_controls:
     title: Ensure latest version of libpam-pwquality is installed
     profiles: *all_profiles
     expected: libpam-pwquality is installed and is not listed as upgradable
-    audit: |
+    audit: !unsafe |
       dpkg-query -W -f='${Status}\n' libpam-pwquality 2>/dev/null | grep -q '^install ok installed$' || { echo 'libpam-pwquality is not installed'; exit 1; }
       upgrades="$(apt list --upgradable 2>/dev/null | grep -P '^libpam-pwquality/' || true)"
       [ -z "$upgrades" ] || { printf '%s\n' "$upgrades"; exit 1; }
@@ -40,7 +40,7 @@ cis_pam_controls:
     title: Ensure pam_unix module is enabled
     profiles: *all_profiles
     expected: pam_unix.so is present in common-account, common-auth, common-password, and common-session
-    audit: |
+    audit: !unsafe |
       fail=0
       for file in common-account common-auth common-password common-session; do
         path="/etc/pam.d/$file"
@@ -53,7 +53,7 @@ cis_pam_controls:
     title: Ensure pam_faillock module is enabled
     profiles: *all_profiles
     expected: common-auth contains pam_faillock preauth and authfail entries, and common-account contains pam_faillock
-    audit: |
+    audit: !unsafe |
       auth=/etc/pam.d/common-auth
       account=/etc/pam.d/common-account
       fail=0
@@ -67,21 +67,21 @@ cis_pam_controls:
     title: Ensure pam_pwquality module is enabled
     profiles: *all_profiles
     expected: pam_pwquality.so is enabled in /etc/pam.d/common-password
-    audit: |
+    audit: !unsafe |
       grep -PH '^\s*password\s+[^#]+\s+pam_pwquality\.so\b' /etc/pam.d/common-password
 
   - id: "5.3.2.4"
     title: Ensure pam_pwhistory module is enabled
     profiles: *all_profiles
     expected: pam_pwhistory.so is enabled in /etc/pam.d/common-password
-    audit: |
+    audit: !unsafe |
       grep -PH '^\s*password\s+[^#]+\s+pam_pwhistory\.so\b' /etc/pam.d/common-password
 
   - id: "5.3.3.1.1"
     title: Ensure password failed attempts lockout is configured
     profiles: *all_profiles
     expected: Effective faillock deny value is between 1 and 5, and no PAM module override is 0 or greater than 5
-    audit: |
+    audit: !unsafe |
       conf="$(grep -Psi '^\s*deny\s*=\s*[0-9]+\b' /etc/security/faillock.conf 2>/dev/null | tail -1 || true)"
       value="$(printf '%s' "$conf" | grep -Po '[0-9]+' | tail -1 || true)"
       bad="$(grep -PHsi '^\s*auth\s+[^#]+\s+pam_faillock\.so\s+.*\bdeny\s*=\s*(0|[6-9]|[1-9][0-9]+)\b' /etc/pam.d/common-auth 2>/dev/null || true)"
@@ -93,7 +93,7 @@ cis_pam_controls:
     title: Ensure password unlock time is configured
     profiles: *all_profiles
     expected: Effective unlock_time is 0 or at least 900 seconds, with no PAM override between 1 and 899
-    audit: |
+    audit: !unsafe |
       conf="$(grep -Psi '^\s*unlock_time\s*=\s*[0-9]+\b' /etc/security/faillock.conf 2>/dev/null | tail -1 || true)"
       value="$(printf '%s' "$conf" | grep -Po '[0-9]+' | tail -1 || true)"
       bad="$(grep -PHsi '^\s*auth\s+[^#]+\s+pam_faillock\.so\s+.*\bunlock_time\s*=\s*([1-9]|[1-9][0-9]|[1-8][0-9][0-9])\b' /etc/pam.d/common-auth 2>/dev/null || true)"
@@ -105,7 +105,7 @@ cis_pam_controls:
     title: Ensure password failed attempts lockout includes root account
     profiles: *all_profiles
     expected: even_deny_root is enabled; if root_unlock_time is set it is 60 seconds or more
-    audit: |
+    audit: !unsafe |
       grep -Pqs '^\s*even_deny_root\b' /etc/security/faillock.conf || { echo 'even_deny_root is missing'; exit 1; }
       value="$(grep -Psi '^\s*root_unlock_time\s*=\s*[0-9]+\b' /etc/security/faillock.conf 2>/dev/null | tail -1 | grep -Po '[0-9]+' | tail -1 || true)"
       [ -z "$value" ] || [ "$value" -ge 60 ] || { echo "root_unlock_time is less than 60: $value"; exit 1; }
@@ -117,7 +117,7 @@ cis_pam_controls:
     title: Ensure password number of changed characters is configured
     profiles: *all_profiles
     expected: Effective difok is 2 or more and no common-password module override is less than 2
-    audit: |
+    audit: !unsafe |
       files=(/etc/security/pwquality.conf /etc/security/pwquality.conf.d/*.conf)
       value="$(grep -Phsi '^\s*difok\s*=\s*[0-9]+\b' "${files[@]}" 2>/dev/null | tail -1 | grep -Po '[0-9]+' | tail -1 || true)"
       bad="$(grep -PHsi '^\s*password\s+[^#]+\s+pam_pwquality\.so\s+.*\bdifok\s*=\s*[01]\b' /etc/pam.d/common-password 2>/dev/null || true)"
@@ -129,7 +129,7 @@ cis_pam_controls:
     title: Ensure password length is configured
     profiles: *all_profiles
     expected: Effective minlen is 14 or more and no common-password module override is less than 14
-    audit: |
+    audit: !unsafe |
       files=(/etc/security/pwquality.conf /etc/security/pwquality.conf.d/*.conf)
       value="$(grep -Phsi '^\s*minlen\s*=\s*[0-9]+\b' "${files[@]}" 2>/dev/null | tail -1 | grep -Po '[0-9]+' | tail -1 || true)"
       bad="$(grep -PHsi '^\s*password\s+[^#]+\s+pam_pwquality\.so\s+.*\bminlen\s*=\s*([0-9]|1[0-3])\b' /etc/pam.d/common-password 2>/dev/null || true)"
@@ -141,7 +141,7 @@ cis_pam_controls:
     title: Ensure password same consecutive characters is configured
     profiles: *all_profiles
     expected: Effective maxrepeat is between 1 and 3 and no module override is 0 or greater than 3
-    audit: |
+    audit: !unsafe |
       files=(/etc/security/pwquality.conf /etc/security/pwquality.conf.d/*.conf)
       value="$(grep -Phsi '^\s*maxrepeat\s*=\s*[0-9]+\b' "${files[@]}" 2>/dev/null | tail -1 | grep -Po '[0-9]+' | tail -1 || true)"
       bad="$(grep -PHsi '^\s*password\s+[^#]+\s+pam_pwquality\.so\s+.*\bmaxrepeat\s*=\s*(0|[4-9]|[1-9][0-9]+)\b' /etc/pam.d/common-password 2>/dev/null || true)"
@@ -153,7 +153,7 @@ cis_pam_controls:
     title: Ensure password maximum sequential characters is configured
     profiles: *all_profiles
     expected: Effective maxsequence is between 1 and 3 and no module override is 0 or greater than 3
-    audit: |
+    audit: !unsafe |
       files=(/etc/security/pwquality.conf /etc/security/pwquality.conf.d/*.conf)
       value="$(grep -Phsi '^\s*maxsequence\s*=\s*[0-9]+\b' "${files[@]}" 2>/dev/null | tail -1 | grep -Po '[0-9]+' | tail -1 || true)"
       bad="$(grep -PHsi '^\s*password\s+[^#]+\s+pam_pwquality\.so\s+.*\bmaxsequence\s*=\s*(0|[4-9]|[1-9][0-9]+)\b' /etc/pam.d/common-password 2>/dev/null || true)"
@@ -165,7 +165,7 @@ cis_pam_controls:
     title: Ensure password dictionary check is enabled
     profiles: *all_profiles
     expected: dictcheck is not disabled in pwquality configuration or the PAM module
-    audit: |
+    audit: !unsafe |
       files=(/etc/security/pwquality.conf /etc/security/pwquality.conf.d/*.conf)
       bad="$(grep -PHsi '^\s*dictcheck\s*=\s*0\b' "${files[@]}" /etc/pam.d/common-password 2>/dev/null || true)"
       [ -z "$bad" ] || { printf '%s\n' "$bad"; exit 1; }
@@ -175,7 +175,7 @@ cis_pam_controls:
     title: Ensure password quality checking is enforced
     profiles: *all_profiles
     expected: enforcing=0 is not configured in pwquality files or on pam_pwquality
-    audit: |
+    audit: !unsafe |
       files=(/etc/security/pwquality.conf /etc/security/pwquality.conf.d/*.conf /etc/pam.d/common-password)
       bad="$(grep -PHsi '^\s*(enforcing\s*=\s*0\b|password\s+[^#]+\s+pam_pwquality\.so\s+.*\benforcing\s*=\s*0\b)' "${files[@]}" 2>/dev/null || true)"
       [ -z "$bad" ] || { printf '%s\n' "$bad"; exit 1; }
@@ -185,14 +185,14 @@ cis_pam_controls:
     title: Ensure password quality is enforced for the root user
     profiles: *all_profiles
     expected: enforce_for_root is enabled in effective pwquality configuration
-    audit: |
+    audit: !unsafe |
       grep -PHsi '^\s*enforce_for_root\b' /etc/security/pwquality.conf /etc/security/pwquality.conf.d/*.conf 2>/dev/null | tail -1 | grep .
 
   - id: "5.3.3.3.1"
     title: Ensure password history remember is configured
     profiles: *all_profiles
     expected: remember is configured using exactly one method and is 24 or more
-    audit: |
+    audit: !unsafe |
       conf="$(grep -Psi '^\s*remember\s*=\s*[0-9]+\b' /etc/security/pwhistory.conf 2>/dev/null | tail -1 || true)"
       pam="$(grep -Psi '^\s*password\s+[^#]+\s+pam_pwhistory\.so\s+.*\bremember\s*=\s*[0-9]+\b' /etc/pam.d/common-password 2>/dev/null | tail -1 || true)"
       [ -z "$conf" ] || [ -z "$pam" ] || { echo 'remember is configured in both pwhistory.conf and common-password'; exit 1; }
@@ -205,7 +205,7 @@ cis_pam_controls:
     title: Ensure password history is enforced for the root user
     profiles: *all_profiles
     expected: enforce_for_root is configured using exactly one pwhistory configuration method
-    audit: |
+    audit: !unsafe |
       conf="$(grep -Psi '^\s*enforce_for_root\b' /etc/security/pwhistory.conf 2>/dev/null || true)"
       pam="$(grep -Psi '^\s*password\s+[^#]+\s+pam_pwhistory\.so\s+.*\benforce_for_root\b' /etc/pam.d/common-password 2>/dev/null || true)"
       [ -z "$conf" ] || [ -z "$pam" ] || { echo 'enforce_for_root is configured in both locations'; exit 1; }
@@ -216,7 +216,7 @@ cis_pam_controls:
     title: Ensure pam_pwhistory includes use_authtok
     profiles: *all_profiles
     expected: use_authtok is configured using exactly one pwhistory configuration method
-    audit: |
+    audit: !unsafe |
       conf="$(grep -Psi '^\s*use_authtok\b' /etc/security/pwhistory.conf 2>/dev/null || true)"
       pam="$(grep -Psi '^\s*password\s+[^#]+\s+pam_pwhistory\.so\s+.*\buse_authtok\b' /etc/pam.d/common-password 2>/dev/null || true)"
       [ -z "$conf" ] || [ -z "$pam" ] || { echo 'use_authtok is configured in both locations'; exit 1; }
@@ -227,7 +227,7 @@ cis_pam_controls:
     title: Ensure pam_unix does not include nullok
     profiles: *all_profiles
     expected: No active pam_unix.so entry includes nullok
-    audit: |
+    audit: !unsafe |
       bad="$(grep -PHs '^\s*[^#]+\s+pam_unix\.so\s+.*\bnullok\b' /etc/pam.d/common-{password,auth,account,session,session-noninteractive} 2>/dev/null || true)"
       [ -z "$bad" ] || { printf '%s\n' "$bad"; exit 1; }
       echo 'No pam_unix nullok arguments found'
@@ -236,7 +236,7 @@ cis_pam_controls:
     title: Ensure pam_unix does not include remember
     profiles: *all_profiles
     expected: No active pam_unix.so entry includes remember
-    audit: |
+    audit: !unsafe |
       bad="$(grep -PHs '^\s*[^#]+\s+pam_unix\.so\s+.*\bremember\s*=\s*[0-9]+\b' /etc/pam.d/common-{password,auth,account,session,session-noninteractive} 2>/dev/null || true)"
       [ -z "$bad" ] || { printf '%s\n' "$bad"; exit 1; }
       echo 'No pam_unix remember arguments found'
@@ -245,7 +245,7 @@ cis_pam_controls:
     title: Ensure pam_unix includes a strong password hashing algorithm
     profiles: *all_profiles
     expected: Every active password pam_unix.so entry includes yescrypt or sha512
-    audit: |
+    audit: !unsafe |
       lines="$(grep -PHs '^\s*password\s+[^#]+\s+pam_unix\.so\b' /etc/pam.d/common-password 2>/dev/null || true)"
       [ -n "$lines" ] || { echo 'No password pam_unix.so line found'; exit 1; }
       bad="$(printf '%s\n' "$lines" | grep -Pv '\b(yescrypt|sha512)\b' || true)"
@@ -256,7 +256,7 @@ cis_pam_controls:
     title: Ensure pam_unix includes use_authtok
     profiles: *all_profiles
     expected: Active Password pam_unix.so entry includes use_authtok
-    audit: |
+    audit: !unsafe |
       grep -PH '^\s*password\s+[^#]+\s+pam_unix\.so\s+.*\buse_authtok\b' /etc/pam.d/common-password
 
 cis_pam_manual_controls:

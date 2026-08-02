@@ -1,0 +1,57 @@
+---
+- name: Disable uncommon network protocols
+  ansible.builtin.blockinfile:
+    path: "{{ cis_modprobe_file }}"
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+    marker: "# {mark} CIS NETWORK MODULES"
+    block: |
+      install dccp /bin/false
+      blacklist dccp
+      install sctp /bin/false
+      blacklist sctp
+      install rds /bin/false
+      blacklist rds
+      install tipc /bin/false
+      blacklist tipc
+  notify: Update initramfs
+  when:
+    - cis_allow_network_changes | bool
+    - (['level2_server', 'level2_workstation'] | intersect(cis_effective_profiles) | length) > 0
+
+- name: Configure network kernel parameters
+  ansible.builtin.blockinfile:
+    path: "{{ cis_sysctl_file }}"
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+    marker: "# {mark} CIS NETWORK HARDENING"
+    block: |
+      net.ipv4.ip_forward = 0
+      net.ipv6.conf.all.forwarding = 0
+      net.ipv4.conf.all.send_redirects = 0
+      net.ipv4.conf.default.send_redirects = 0
+      net.ipv4.conf.all.accept_source_route = 0
+      net.ipv4.conf.default.accept_source_route = 0
+      net.ipv6.conf.all.accept_source_route = 0
+      net.ipv6.conf.default.accept_source_route = 0
+      net.ipv4.conf.all.accept_redirects = 0
+      net.ipv4.conf.default.accept_redirects = 0
+      net.ipv6.conf.all.accept_redirects = 0
+      net.ipv6.conf.default.accept_redirects = 0
+      net.ipv4.conf.all.secure_redirects = 0
+      net.ipv4.conf.default.secure_redirects = 0
+      net.ipv4.conf.all.log_martians = 1
+      net.ipv4.conf.default.log_martians = 1
+      net.ipv4.icmp_echo_ignore_broadcasts = 1
+      net.ipv4.icmp_ignore_bogus_error_responses = 1
+      net.ipv4.conf.all.rp_filter = 1
+      net.ipv4.conf.default.rp_filter = 1
+      net.ipv4.tcp_syncookies = 1
+      net.ipv6.conf.all.accept_ra = 0
+      net.ipv6.conf.default.accept_ra = 0
+  notify: Reload sysctl
+  when: cis_allow_network_changes | bool

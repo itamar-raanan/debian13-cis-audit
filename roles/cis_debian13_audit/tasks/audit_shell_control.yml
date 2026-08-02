@@ -26,6 +26,8 @@
            'FAIL' if cis_shell_audit.rc == 1 else
            'NOT_APPLICABLE' if cis_shell_audit.rc == 3 else 'ERROR'),
         'expected': cis_control.expected,
+        'remediation': cis_remediations.get(cis_control.id,
+          'Review the control evidence and expected state, apply the approved configuration change, and re-run the audit.'),
         'actual':
           ('Documented exception: ' ~ cis_exceptions[cis_control.id]
            if cis_control.id in cis_exceptions else

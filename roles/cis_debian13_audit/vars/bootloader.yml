@@ -5,7 +5,7 @@ cis_bootloader_controls:
     assessment: Automated
     profiles: [level1_server, level1_workstation, level2_server, level2_workstation]
     expected: GRUB defines a superuser and a PBKDF2-SHA512 password for that user.
-    audit: |
+    audit: !unsafe |
       cfg=/boot/grub/grub.cfg
       [[ -r "$cfg" ]] || { echo "cannot read $cfg"; exit 2; }
       superusers="$(grep -E '^\s*set\s+superusers=' "$cfg" | tail -1 || true)"
@@ -18,7 +18,7 @@ cis_bootloader_controls:
     assessment: Automated
     profiles: [level1_server, level1_workstation, level2_server, level2_workstation]
     expected: /boot/grub/grub.cfg is owned by root:root and has mode 0600 or more restrictive.
-    audit: |
+    audit: !unsafe |
       cfg=/boot/grub/grub.cfg
       [[ -e "$cfg" ]] || { echo "$cfg does not exist"; exit 2; }
       read -r mode uid gid < <(stat -Lc '%a %u %g' "$cfg")

@@ -5,7 +5,7 @@ cis_gdm_controls:
     assessment: Automated
     profiles: [level2_server]
     expected: The gdm3 package is not installed
-    audit: |
+    audit: !unsafe |
       if dpkg-query -W -f='${Status}\n' gdm3 2>/dev/null | grep -q '^install ok installed$'; then
         echo "FAIL: gdm3 is installed"
         exit 1
@@ -18,7 +18,7 @@ cis_gdm_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: When GDM is installed, banner-message-enable is true and banner-message-text contains a non-empty site-approved warning
-    audit: |
+    audit: !unsafe |
       dpkg-query -W -f='${Status}\n' gdm3 2>/dev/null | grep -q '^install ok installed$' || {
         echo "NOT_APPLICABLE: gdm3 is not installed"; exit 3;
       }
@@ -39,7 +39,7 @@ cis_gdm_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: When GDM is installed, org.gnome.login-screen disable-user-list is true
-    audit: |
+    audit: !unsafe |
       dpkg-query -W -f='${Status}\n' gdm3 2>/dev/null | grep -q '^install ok installed$' || {
         echo "NOT_APPLICABLE: gdm3 is not installed"; exit 3;
       }
@@ -53,7 +53,7 @@ cis_gdm_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: When GDM is installed, idle-delay is between 1 and 900 seconds and lock-delay is 5 seconds or less
-    audit: |
+    audit: !unsafe |
       dpkg-query -W -f='${Status}\n' gdm3 2>/dev/null | grep -q '^install ok installed$' || {
         echo "NOT_APPLICABLE: gdm3 is not installed"; exit 3;
       }
@@ -74,7 +74,7 @@ cis_gdm_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: When GDM is installed, dconf locks protect idle-delay and lock-delay
-    audit: |
+    audit: !unsafe |
       dpkg-query -W -f='${Status}\n' gdm3 2>/dev/null | grep -q '^install ok installed$' || {
         echo "NOT_APPLICABLE: gdm3 is not installed"; exit 3;
       }
@@ -91,7 +91,7 @@ cis_gdm_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: When GDM is installed, automount and automount-open are both false
-    audit: |
+    audit: !unsafe |
       dpkg-query -W -f='${Status}\n' gdm3 2>/dev/null | grep -q '^install ok installed$' || {
         echo "NOT_APPLICABLE: gdm3 is not installed"; exit 3;
       }
@@ -108,7 +108,7 @@ cis_gdm_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: When GDM is installed, dconf locks protect automount and automount-open
-    audit: |
+    audit: !unsafe |
       dpkg-query -W -f='${Status}\n' gdm3 2>/dev/null | grep -q '^install ok installed$' || {
         echo "NOT_APPLICABLE: gdm3 is not installed"; exit 3;
       }
@@ -125,7 +125,7 @@ cis_gdm_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: When GDM is installed, autorun-never is true
-    audit: |
+    audit: !unsafe |
       dpkg-query -W -f='${Status}\n' gdm3 2>/dev/null | grep -q '^install ok installed$' || {
         echo "NOT_APPLICABLE: gdm3 is not installed"; exit 3;
       }
@@ -139,7 +139,7 @@ cis_gdm_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: When GDM is installed, dconf locks protect autorun-never
-    audit: |
+    audit: !unsafe |
       dpkg-query -W -f='${Status}\n' gdm3 2>/dev/null | grep -q '^install ok installed$' || {
         echo "NOT_APPLICABLE: gdm3 is not installed"; exit 3;
       }
@@ -153,7 +153,7 @@ cis_gdm_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: When GDM is installed, no [xdmcp] block enables XDMCP
-    audit: |
+    audit: !unsafe |
       dpkg-query -W -f='${Status}\n' gdm3 2>/dev/null | grep -q '^install ok installed$' || {
         echo "NOT_APPLICABLE: gdm3 is not installed"; exit 3;
       }
@@ -176,7 +176,7 @@ cis_gdm_controls:
     assessment: Automated
     profiles: [level2_server, level2_workstation]
     expected: When GDM is installed, WaylandEnable=false is configured in the [daemon] block
-    audit: |
+    audit: !unsafe |
       dpkg-query -W -f='${Status}\n' gdm3 2>/dev/null | grep -q '^install ok installed$' || {
         echo "NOT_APPLICABLE: gdm3 is not installed"; exit 3;
       }

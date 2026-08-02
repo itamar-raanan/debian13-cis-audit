@@ -1,0 +1,7 @@
+---
+- name: CIS Debian 13 remediation
+  hosts: all
+  gather_facts: true
+  become: true
+  roles:
+    - role: cis_debian13_remediate

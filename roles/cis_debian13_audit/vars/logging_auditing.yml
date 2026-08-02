@@ -6,7 +6,7 @@ cis_section6_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     systemctl is-enabled systemd-journald.service 2>/dev/null | grep -qx enabled || { echo 'systemd-journald.service is not enabled'; exit 1; }
     systemctl is-active systemd-journald.service 2>/dev/null | grep -qx active || { echo 'systemd-journald.service is not active'; exit 1; }
     echo 'systemd-journald.service is enabled and active'
@@ -16,7 +16,7 @@ cis_section6_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     v=$(grep -hE '^[[:space:]]*ForwardToSyslog[[:space:]]*=' /etc/systemd/journald.conf /etc/systemd/journald.conf.d/*.conf 2>/dev/null | sed -E 's/^[^=]+=[[:space:]]*//;s/[[:space:]]*(#.*)?$//' | tail -1 | tr '[:upper:]' '[:lower:]')
     [ "$v" = "no" ] || { echo 'ForwardToSyslog='"${v:-unset}"', expected no'; exit 1; }
     echo 'ForwardToSyslog='$v
@@ -26,7 +26,7 @@ cis_section6_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     v=$(systemd-analyze cat-config systemd/journald.conf 2>/dev/null | awk -F= '/^[[:space:]]*Storage[[:space:]]*=/{gsub(/[[:space:]]/,"",$2);v=tolower($2)}END{print v}')
     case "$v" in persistent|auto) echo "Storage=$v";; *) echo "Storage=${v:-unset}"; exit 1;; esac
 - id: 6.1.1.1.6
@@ -35,7 +35,7 @@ cis_section6_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     v=$(systemd-analyze cat-config systemd/journald.conf 2>/dev/null | awk -F= '/^[[:space:]]*Compress[[:space:]]*=/{gsub(/[[:space:]]/,"",$2);v=tolower($2)}END{print v}')
     [ "$v" = yes ] || { echo "Compress=${v:-unset}"; exit 1; }
     echo 'Compress=yes'
@@ -45,7 +45,7 @@ cis_section6_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     dpkg-query -W -f='${db:Status-Status} ${Version}\n' systemd-journal-remote 2>/dev/null | grep -q '^installed ' || { echo 'systemd-journal-remote is not installed'; exit 1; }
     dpkg-query -W -f='systemd-journal-remote=${Version}\n' systemd-journal-remote
 - id: 6.1.1.2.3
@@ -54,7 +54,7 @@ cis_section6_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     systemctl is-enabled systemd-journal-upload.service 2>/dev/null | grep -qx enabled || { echo 'systemd-journal-upload.service is not enabled'; exit 1; }
     systemctl is-active systemd-journal-upload.service 2>/dev/null | grep -qx active || { echo 'systemd-journal-upload.service is not active'; exit 1; }
     echo 'systemd-journal-upload.service is enabled and active'
@@ -64,7 +64,7 @@ cis_section6_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     e=$(systemctl is-enabled systemd-journal-remote.socket 2>/dev/null || true)
     a=$(systemctl is-active systemd-journal-remote.socket 2>/dev/null || true)
     [ "$e" != enabled ] && [ "$a" != active ] || { echo "enabled=$e active=$a"; exit 1; }
@@ -75,7 +75,7 @@ cis_section6_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     dpkg-query -W -f='${db:Status-Status} ${Version}\n' rsyslog 2>/dev/null | grep -q '^installed ' || { echo 'rsyslog is not installed'; exit 1; }
     dpkg-query -W -f='rsyslog=${Version}\n' rsyslog
 - id: 6.1.2.2
@@ -84,7 +84,7 @@ cis_section6_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     systemctl is-enabled rsyslog.service 2>/dev/null | grep -qx enabled || { echo 'rsyslog.service is not enabled'; exit 1; }
     systemctl is-active rsyslog.service 2>/dev/null | grep -qx active || { echo 'rsyslog.service is not active'; exit 1; }
     echo 'rsyslog.service is enabled and active'
@@ -94,7 +94,7 @@ cis_section6_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     v=$(grep -hE '^[[:space:]]*ForwardToSyslog[[:space:]]*=' /etc/systemd/journald.conf /etc/systemd/journald.conf.d/*.conf 2>/dev/null | sed -E 's/^[^=]+=[[:space:]]*//;s/[[:space:]]*(#.*)?$//' | tail -1 | tr '[:upper:]' '[:lower:]')
     [ "$v" = "yes" ] || { echo 'ForwardToSyslog='"${v:-unset}"', expected yes'; exit 1; }
     echo 'ForwardToSyslog='$v
@@ -104,7 +104,7 @@ cis_section6_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     v=$(grep -hE '^[[:space:]]*\$FileCreateMode[[:space:]]+' /etc/rsyslog.conf /etc/rsyslog.d/*.conf 2>/dev/null | awk '{print $2}' | tail -1)
     [ -n "$v" ] || { echo '$FileCreateMode missing'; exit 1; }
     [ $((8#$v & 0027)) -eq 0 ] || { echo "mode=$v"; exit 1; }
@@ -115,7 +115,7 @@ cis_section6_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     bad=$(grep -RHE '^[[:space:]]*(module\(load="im(tcp|udp)"|input\(type="im(tcp|udp)"|\$ModLoad[[:space:]]+im(tcp|udp)|\$(InputTCPServerRun|UDPServerRun))' /etc/rsyslog.conf /etc/rsyslog.d 2>/dev/null || true)
     [ -z "$bad" ] || { echo "$bad"; exit 1; }
     echo 'No remote receive input configured'
@@ -125,7 +125,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     dpkg-query -W -f='${db:Status-Status} ${Version}\n' rsyslog-gnutls 2>/dev/null | grep -q '^installed ' || { echo 'rsyslog-gnutls is not installed'; exit 1; }
     dpkg-query -W -f='rsyslog-gnutls=${Version}\n' rsyslog-gnutls
 - id: 6.1.2.10
@@ -134,7 +134,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     cfg=$(cat /etc/rsyslog.conf /etc/rsyslog.d/*.conf 2>/dev/null)
     grep -Pqi 'gtls' <<<"$cfg" || { echo 'gtls not configured'; exit 1; }
     grep -Pqi 'StreamDriverMode[="[:space:]]+1|StreamDriverAuthMode' <<<"$cfg" || { echo 'gtls mode/auth missing'; exit 1; }
@@ -145,7 +145,7 @@ cis_section6_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     bad=$(find /var/log -xdev -type f -perm /0037 -printf '%m %U %G %p\n' 2>/dev/null)
     [ -z "$bad" ] || { echo "$bad"; exit 1; }
     echo 'Log files are 0640 or more restrictive'
@@ -155,7 +155,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     fail=0
     for p in auditd audispd-plugins; do dpkg-query -W -f='${db:Status-Status}\n' "$p" 2>/dev/null | grep -qx installed || { echo "$p missing"; fail=1; }; done
     exit $fail
@@ -165,7 +165,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     systemctl is-enabled auditd.service 2>/dev/null | grep -qx enabled || { echo 'auditd.service is not enabled'; exit 1; }
     systemctl is-active auditd.service 2>/dev/null | grep -qx active || { echo 'auditd.service is not active'; exit 1; }
     echo 'auditd.service is enabled and active'
@@ -175,7 +175,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     grep -Pq '(^|[[:space:]])audit=1([[:space:]]|$)' /proc/cmdline || { echo 'runtime audit=1 missing'; exit 1; }
     grep -RPsq 'GRUB_CMDLINE_LINUX.*\baudit=1\b' /etc/default/grub /etc/default/grub.d 2>/dev/null || { echo 'persistent audit=1 missing'; exit 1; }
     echo 'audit=1 configured'
@@ -185,7 +185,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     v=$(grep -Po 'audit_backlog_limit=\K[0-9]+' /proc/cmdline | tail -1)
     [ -n "$v" ] && [ "$v" -ge 8192 ] || { echo "runtime=${v:-unset}"; exit 1; }
     grep -RPsq 'GRUB_CMDLINE_LINUX.*audit_backlog_limit=([8-9][0-9]{3}|[1-9][0-9]{4,})' /etc/default/grub /etc/default/grub.d 2>/dev/null || { echo 'persistent backlog limit missing'; exit 1; }
@@ -196,7 +196,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     v=$(awk -F= '/^[[:space:]]*max_log_file[[:space:]]*=/{gsub(/[[:space:]]/,"",$2);print $2}' /etc/audit/auditd.conf | tail -1)
     [ -n "$v" ] && [ "$v" -gt 0 ] || { echo 'max_log_file missing'; exit 1; }
     echo "max_log_file=$v (verify against policy)"
@@ -206,7 +206,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     v=$(grep -hE '^[[:space:]]*max_log_file_action[[:space:]]*=' /etc/audit/auditd.conf 2>/dev/null | sed -E 's/^[^=]+=[[:space:]]*//;s/[[:space:]]*(#.*)?$//' | tail -1 | tr '[:upper:]' '[:lower:]')
     [ "$v" = "keep_logs" ] || { echo 'max_log_file_action='"${v:-unset}"', expected keep_logs'; exit 1; }
     echo 'max_log_file_action='$v
@@ -216,7 +216,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     fail=0
     a=$(awk -F= '/^[[:space:]]*disk_full_action[[:space:]]*=/{gsub(/[[:space:]]/,"",$2);print tolower($2)}' /etc/audit/auditd.conf | tail -1)
     b=$(awk -F= '/^[[:space:]]*disk_error_action[[:space:]]*=/{gsub(/[[:space:]]/,"",$2);print tolower($2)}' /etc/audit/auditd.conf | tail -1)
@@ -229,7 +229,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     fail=0
     a=$(awk -F= '/^[[:space:]]*space_left_action[[:space:]]*=/{gsub(/[[:space:]]/,"",$2);print tolower($2)}' /etc/audit/auditd.conf | tail -1)
     b=$(awk -F= '/^[[:space:]]*admin_space_left_action[[:space:]]*=/{gsub(/[[:space:]]/,"",$2);print tolower($2)}' /etc/audit/auditd.conf | tail -1)
@@ -242,7 +242,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     disk=$(cat /etc/audit/rules.d/*.rules 2>/dev/null || true)
     run=$(auditctl -l 2>/dev/null || true)
     grep -Pq '/etc/sudoers' <<<"$disk" || { echo 'On-disk audit rule missing: /etc/sudoers'; exit 1; }
@@ -254,7 +254,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     disk=$(cat /etc/audit/rules.d/*.rules 2>/dev/null || true)
     run=$(auditctl -l 2>/dev/null || true)
     grep -Pq '(/usr/bin/sudo|key=(sudo|privileged)|-k[[:space:]]+(sudo|privileged))' <<<"$disk" || { echo 'On-disk audit rule missing: (/usr/bin/sudo|key=(sudo|privileged)|-k[[:space:]]+(sudo|privileged))'; exit 1; }
@@ -266,7 +266,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     disk=$(cat /etc/audit/rules.d/*.rules 2>/dev/null || true)
     run=$(auditctl -l 2>/dev/null || true)
     grep -Pq '/var/log/sudo' <<<"$disk" || { echo 'On-disk audit rule missing: /var/log/sudo'; exit 1; }
@@ -278,7 +278,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     disk=$(cat /etc/audit/rules.d/*.rules 2>/dev/null || true)
     run=$(auditctl -l 2>/dev/null || true)
     grep -Pq '(adjtimex|settimeofday|clock_settime|/etc/localtime)' <<<"$disk" || { echo 'On-disk audit rule missing: (adjtimex|settimeofday|clock_settime|/etc/localtime)'; exit 1; }
@@ -290,7 +290,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     disk=$(cat /etc/audit/rules.d/*.rules 2>/dev/null || true)
     run=$(auditctl -l 2>/dev/null || true)
     grep -Pq '(sethostname|setdomainname|/etc/hostname)' <<<"$disk" || { echo 'On-disk audit rule missing: (sethostname|setdomainname|/etc/hostname)'; exit 1; }
@@ -302,7 +302,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     disk=$(cat /etc/audit/rules.d/*.rules 2>/dev/null || true)
     run=$(auditctl -l 2>/dev/null || true)
     grep -Pq '(/etc/issue|/etc/issue\.net)' <<<"$disk" || { echo 'On-disk audit rule missing: (/etc/issue|/etc/issue\.net)'; exit 1; }
@@ -314,7 +314,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     disk=$(cat /etc/audit/rules.d/*.rules 2>/dev/null || true)
     run=$(auditctl -l 2>/dev/null || true)
     grep -Pq '(/etc/hosts|/etc/network|sethostname|setdomainname)' <<<"$disk" || { echo 'On-disk audit rule missing: (/etc/hosts|/etc/network|sethostname|setdomainname)'; exit 1; }
@@ -326,7 +326,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     disk=$(cat /etc/audit/rules.d/*.rules 2>/dev/null || true)
     run=$(auditctl -l 2>/dev/null || true)
     grep -Pq '/etc/NetworkManager' <<<"$disk" || { echo 'On-disk audit rule missing: /etc/NetworkManager'; exit 1; }
@@ -338,7 +338,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     disk=$(cat /etc/audit/rules.d/*.rules 2>/dev/null || true)
     run=$(auditctl -l 2>/dev/null || true)
     grep -Pq '(perm=x.*auid|auid.*perm=x)' <<<"$disk" || { echo 'On-disk audit rule missing: (perm=x.*auid|auid.*perm=x)'; exit 1; }
@@ -350,7 +350,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     disk=$(cat /etc/audit/rules.d/*.rules 2>/dev/null || true)
     run=$(auditctl -l 2>/dev/null || true)
     grep -Pq '(exit=-EACCES|exit=-EPERM)' <<<"$disk" || { echo 'On-disk audit rule missing: (exit=-EACCES|exit=-EPERM)'; exit 1; }
@@ -362,7 +362,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     disk=$(cat /etc/audit/rules.d/*.rules 2>/dev/null || true)
     run=$(auditctl -l 2>/dev/null || true)
     grep -Pq '(/etc/group|/etc/gshadow)' <<<"$disk" || { echo 'On-disk audit rule missing: (/etc/group|/etc/gshadow)'; exit 1; }
@@ -374,7 +374,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     disk=$(cat /etc/audit/rules.d/*.rules 2>/dev/null || true)
     run=$(auditctl -l 2>/dev/null || true)
     grep -Pq '/etc/passwd' <<<"$disk" || { echo 'On-disk audit rule missing: /etc/passwd'; exit 1; }
@@ -386,7 +386,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     disk=$(cat /etc/audit/rules.d/*.rules 2>/dev/null || true)
     run=$(auditctl -l 2>/dev/null || true)
     grep -Pq '(/etc/shadow|/etc/gshadow)' <<<"$disk" || { echo 'On-disk audit rule missing: (/etc/shadow|/etc/gshadow)'; exit 1; }
@@ -398,7 +398,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     disk=$(cat /etc/audit/rules.d/*.rules 2>/dev/null || true)
     run=$(auditctl -l 2>/dev/null || true)
     grep -Pq '/etc/security/opasswd' <<<"$disk" || { echo 'On-disk audit rule missing: /etc/security/opasswd'; exit 1; }
@@ -410,7 +410,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     disk=$(cat /etc/audit/rules.d/*.rules 2>/dev/null || true)
     run=$(auditctl -l 2>/dev/null || true)
     grep -Pq '/etc/nsswitch\.conf' <<<"$disk" || { echo 'On-disk audit rule missing: /etc/nsswitch\.conf'; exit 1; }
@@ -422,7 +422,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     disk=$(cat /etc/audit/rules.d/*.rules 2>/dev/null || true)
     run=$(auditctl -l 2>/dev/null || true)
     grep -Pq '(/etc/pam\.conf|/etc/pam\.d)' <<<"$disk" || { echo 'On-disk audit rule missing: (/etc/pam\.conf|/etc/pam\.d)'; exit 1; }
@@ -434,7 +434,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     disk=$(cat /etc/audit/rules.d/*.rules 2>/dev/null || true)
     run=$(auditctl -l 2>/dev/null || true)
     grep -Pq '(-S[[:space:]].*mount|syscall=.*mount)' <<<"$disk" || { echo 'On-disk audit rule missing: (-S[[:space:]].*mount|syscall=.*mount)'; exit 1; }
@@ -446,7 +446,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     disk=$(cat /etc/audit/rules.d/*.rules 2>/dev/null || true)
     run=$(auditctl -l 2>/dev/null || true)
     grep -Pq '(/var/run/utmp|/var/log/wtmp|/var/log/btmp)' <<<"$disk" || { echo 'On-disk audit rule missing: (/var/run/utmp|/var/log/wtmp|/var/log/btmp)'; exit 1; }
@@ -458,7 +458,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     disk=$(cat /etc/audit/rules.d/*.rules 2>/dev/null || true)
     run=$(auditctl -l 2>/dev/null || true)
     grep -Pq '(/var/log/lastlog|/var/run/faillock)' <<<"$disk" || { echo 'On-disk audit rule missing: (/var/log/lastlog|/var/run/faillock)'; exit 1; }
@@ -470,7 +470,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     disk=$(cat /etc/audit/rules.d/*.rules 2>/dev/null || true)
     run=$(auditctl -l 2>/dev/null || true)
     grep -Pq '(unlink|unlinkat)' <<<"$disk" || { echo 'On-disk audit rule missing: (unlink|unlinkat)'; exit 1; }
@@ -482,7 +482,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     disk=$(cat /etc/audit/rules.d/*.rules 2>/dev/null || true)
     run=$(auditctl -l 2>/dev/null || true)
     grep -Pq '(rename|renameat)' <<<"$disk" || { echo 'On-disk audit rule missing: (rename|renameat)'; exit 1; }
@@ -494,7 +494,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     disk=$(cat /etc/audit/rules.d/*.rules 2>/dev/null || true)
     run=$(auditctl -l 2>/dev/null || true)
     grep -Pq '(/etc/apparmor|/etc/selinux)' <<<"$disk" || { echo 'On-disk audit rule missing: (/etc/apparmor|/etc/selinux)'; exit 1; }
@@ -506,7 +506,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     disk=$(cat /etc/audit/rules.d/*.rules 2>/dev/null || true)
     run=$(auditctl -l 2>/dev/null || true)
     grep -Pq '(init_module|finit_module|delete_module|/usr/bin/kmod)' <<<"$disk" || { echo 'On-disk audit rule missing: (init_module|finit_module|delete_module|/usr/bin/kmod)'; exit 1; }
@@ -518,7 +518,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     disk=$(cat /etc/audit/rules.d/*.rules 2>/dev/null || true)
     run=$(auditctl -l 2>/dev/null || true)
     grep -Pq 'delete_module' <<<"$disk" || { echo 'On-disk audit rule missing: delete_module'; exit 1; }
@@ -530,7 +530,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     disk=$(cat /etc/audit/rules.d/*.rules 2>/dev/null || true)
     run=$(auditctl -l 2>/dev/null || true)
     grep -Pq 'query_module' <<<"$disk" || { echo 'On-disk audit rule missing: query_module'; exit 1; }
@@ -542,7 +542,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     grep -RPsq '^[[:space:]]*-c([[:space:]]|$)' /etc/audit/rules.d/*.rules /etc/audit/audit.rules 2>/dev/null || { echo '-c missing'; exit 1; }
     echo '-c configured'
 - id: 6.2.3.36
@@ -551,7 +551,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     last=$(awk '!/^[[:space:]]*(#|$)/{x=$0}END{print x}' /etc/audit/rules.d/*.rules 2>/dev/null)
     grep -Pq '^[[:space:]]*-e[[:space:]]+2([[:space:]]|$)' <<<"$last" || { echo "last rule=$last"; exit 1; }
     echo 'Immutable -e 2 configured'
@@ -561,7 +561,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     d=$(awk -F= '/^[[:space:]]*log_file[[:space:]]*=/{gsub(/[[:space:]]/,"",$2);print $2}' /etc/audit/auditd.conf | xargs dirname 2>/dev/null); [ -n "$d" ] || d=/var/log/audit
     bad=$(find "$d" -maxdepth 1 -type f -perm /0137 -printf '%m %p\n' 2>/dev/null)
     [ -z "$bad" ] || { echo "$bad"; exit 1; }
@@ -572,7 +572,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     d=/var/log/audit
     bad=$(find "$d" -maxdepth 1 -type f ! -user root -printf '%U %p\n' 2>/dev/null)
     [ -z "$bad" ] || { echo "$bad"; exit 1; }
@@ -583,7 +583,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     bad=$(find /var/log/audit -maxdepth 1 -type f ! -group adm ! -group root -printf '%G %p\n' 2>/dev/null)
     [ -z "$bad" ] || { echo "$bad"; exit 1; }
     echo 'Audit logs group-owned by adm/root'
@@ -593,7 +593,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     m=$(stat -Lc %a /var/log/audit 2>/dev/null) || exit 2
     [ $((8#$m & 0027)) -eq 0 ] || { echo "mode=$m"; exit 1; }
     echo "mode=$m"
@@ -603,7 +603,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     bad=$(find /etc/audit -type f -perm /0137 -printf '%m %p\n' 2>/dev/null)
     [ -z "$bad" ] || { echo "$bad"; exit 1; }
     echo 'Audit config modes compliant'
@@ -613,7 +613,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     bad=$(find /etc/audit -type f ! -user root -printf '%U %p\n' 2>/dev/null)
     [ -z "$bad" ] || { echo "$bad"; exit 1; }
     echo 'Audit config owned by root'
@@ -623,7 +623,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     bad=$(find /etc/audit -type f ! -group root -printf '%G %p\n' 2>/dev/null)
     [ -z "$bad" ] || { echo "$bad"; exit 1; }
     echo 'Audit config group-owned by root'
@@ -633,7 +633,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     bad=$(for f in /sbin/auditctl /sbin/aureport /sbin/ausearch /sbin/autrace /sbin/auditd /sbin/augenrules; do [ -e "$f" ] || continue; m=$(stat -Lc %a "$f"); [ $((8#$m & 0022)) -eq 0 ] || echo "$m $f"; done)
     [ -z "$bad" ] || { echo "$bad"; exit 1; }
     echo 'Audit tool modes compliant'
@@ -643,7 +643,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     bad=$(for f in /sbin/auditctl /sbin/aureport /sbin/ausearch /sbin/autrace /sbin/auditd /sbin/augenrules; do [ ! -e "$f" ] || [ "$(stat -Lc %u "$f")" = 0 ] || echo "$f"; done)
     [ -z "$bad" ] || { echo "$bad"; exit 1; }
     echo 'Audit tools owned by root'
@@ -653,7 +653,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     bad=$(for f in /sbin/auditctl /sbin/aureport /sbin/ausearch /sbin/autrace /sbin/auditd /sbin/augenrules; do [ ! -e "$f" ] || [ "$(stat -Lc %g "$f")" = 0 ] || echo "$f"; done)
     [ -z "$bad" ] || { echo "$bad"; exit 1; }
     echo 'Audit tools group-owned by root'
@@ -663,7 +663,7 @@ cis_section6_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     dpkg-query -W -f='${db:Status-Status} ${Version}\n' aide 2>/dev/null | grep -q '^installed ' || { echo 'aide is not installed'; exit 1; }
     dpkg-query -W -f='aide=${Version}\n' aide
 - id: 6.3.2
@@ -672,7 +672,7 @@ cis_section6_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     systemctl is-enabled aidecheck.timer 2>/dev/null | grep -qx enabled && { echo 'aidecheck.timer enabled'; exit 0; }
     grep -RPsq '^[^#].*\baide(check)?\b' /etc/cron.d /etc/cron.daily /etc/cron.weekly /var/spool/cron/crontabs 2>/dev/null && { echo 'AIDE scheduled'; exit 0; }
     echo 'AIDE is not scheduled'; exit 1
@@ -682,7 +682,7 @@ cis_section6_controls:
   - level2_server
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     cfg=$(cat /etc/aide/aide.conf /etc/aide/aide.conf.d/* 2>/dev/null)
     fail=0
     for f in auditctl aureport ausearch autrace auditd augenrules; do grep -Pq "/(sbin|usr/sbin)/$f[[:space:]].*(sha256|sha512)" <<<"$cfg" || { echo "Missing AIDE hash rule for $f"; fail=1; }; done

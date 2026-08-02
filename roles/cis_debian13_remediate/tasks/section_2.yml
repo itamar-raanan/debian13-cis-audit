@@ -1,0 +1,69 @@
+---
+- name: Optionally update installed packages
+  ansible.builtin.apt:
+    update_cache: true
+    upgrade: safe
+  when: cis_allow_updates | bool
+
+- name: Disable unnecessary server services
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: false
+    state: stopped
+  loop: "{{ cis_disable_services }}"
+  failed_when: false
+  when: cis_allow_service_removal | bool
+
+- name: Remove legacy client packages
+  ansible.builtin.apt:
+    name: "{{ cis_remove_client_packages }}"
+    state: absent
+    purge: true
+  when: cis_allow_service_removal | bool
+
+- name: Install chrony when organization time sources are supplied
+  ansible.builtin.apt:
+    name: chrony
+    state: present
+  when: cis_chrony_servers | length > 0
+  notify: Restart chrony
+
+- name: Configure organization-approved chrony sources
+  ansible.builtin.template:
+    src: chrony-cis.conf.j2
+    dest: /etc/chrony/conf.d/60-cis-debian13.conf
+    owner: root
+    group: root
+    mode: '0644'
+  when: cis_chrony_servers | length > 0
+  notify: Restart chrony
+
+- name: Ensure cron directories and files have secure permissions
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - {path: /etc/crontab, mode: '0600'}
+    - {path: /etc/cron.hourly, mode: '0700'}
+    - {path: /etc/cron.daily, mode: '0700'}
+    - {path: /etc/cron.weekly, mode: '0700'}
+    - {path: /etc/cron.monthly, mode: '0700'}
+    - {path: /etc/cron.d, mode: '0700'}
+  failed_when: false
+
+- name: Restrict cron and at access to root
+  ansible.builtin.copy:
+    dest: "{{ item }}"
+    content: "root\n"
+    owner: root
+    group: root
+    mode: '0640'
+  loop: [/etc/cron.allow, /etc/at.allow]
+
+- name: Remove cron and at deny files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: [/etc/cron.deny, /etc/at.deny]

@@ -1,0 +1,14 @@
+---
+- name: Check whether backup source exists
+  ansible.builtin.stat:
+    path: "{{ cis_backup_source }}"
+  register: cis_backup_stat
+- name: Back up configuration
+  ansible.builtin.copy:
+    src: "{{ cis_backup_source }}"
+    dest: "{{ cis_backup_dir }}/{{ cis_backup_source | regex_replace('^/', '') | regex_replace('/', '__') }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: preserve
+  when: cis_backup_stat.stat.exists

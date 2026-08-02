@@ -6,7 +6,7 @@ cis_section7_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     [ -e /etc/passwd ] || { echo '/etc/passwd missing'; exit 1; }
     read mode uid gid <<EOF
     $(stat -Lc '%a %u %g' /etc/passwd)
@@ -21,7 +21,7 @@ cis_section7_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     [ -e /etc/passwd- ] || { echo '/etc/passwd- missing'; exit 1; }
     read mode uid gid <<EOF
     $(stat -Lc '%a %u %g' /etc/passwd-)
@@ -36,7 +36,7 @@ cis_section7_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     [ -e /etc/group ] || { echo '/etc/group missing'; exit 1; }
     read mode uid gid <<EOF
     $(stat -Lc '%a %u %g' /etc/group)
@@ -51,7 +51,7 @@ cis_section7_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     [ -e /etc/group- ] || { echo '/etc/group- missing'; exit 1; }
     read mode uid gid <<EOF
     $(stat -Lc '%a %u %g' /etc/group-)
@@ -66,7 +66,7 @@ cis_section7_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     [ -e /etc/shadow ] || { echo '/etc/shadow missing'; exit 1; }
     read mode uid gid <<EOF
     $(stat -Lc '%a %u %g' /etc/shadow)
@@ -81,7 +81,7 @@ cis_section7_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     [ -e /etc/shadow- ] || { echo '/etc/shadow- missing'; exit 1; }
     read mode uid gid <<EOF
     $(stat -Lc '%a %u %g' /etc/shadow-)
@@ -96,7 +96,7 @@ cis_section7_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     [ -e /etc/gshadow ] || { echo '/etc/gshadow missing'; exit 1; }
     read mode uid gid <<EOF
     $(stat -Lc '%a %u %g' /etc/gshadow)
@@ -111,7 +111,7 @@ cis_section7_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     [ -e /etc/gshadow- ] || { echo '/etc/gshadow- missing'; exit 1; }
     read mode uid gid <<EOF
     $(stat -Lc '%a %u %g' /etc/gshadow-)
@@ -126,7 +126,7 @@ cis_section7_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     [ -e /etc/shells ] || { echo '/etc/shells missing'; exit 1; }
     read mode uid gid <<EOF
     $(stat -Lc '%a %u %g' /etc/shells)
@@ -141,7 +141,7 @@ cis_section7_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     [ -e /etc/security/opasswd ] || { echo '/etc/security/opasswd missing'; exit 1; }
     read mode uid gid <<EOF
     $(stat -Lc '%a %u %g' /etc/security/opasswd)
@@ -156,7 +156,7 @@ cis_section7_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     badf=$(find / -xdev -type f -perm -0002 -printf '%m %p\n' 2>/dev/null)
     badd=$(find / -xdev -type d -perm -0002 ! -perm -1000 -printf '%m %p\n' 2>/dev/null)
     [ -z "$badf$badd" ] || { echo "$badf"; echo "$badd"; exit 1; }
@@ -167,7 +167,7 @@ cis_section7_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     bad=$(find / -xdev \( -nouser -o -nogroup \) -printf '%u %g %p\n' 2>/dev/null)
     [ -z "$bad" ] || { echo "$bad"; exit 1; }
     echo 'No unowned/ungrouped objects'
@@ -177,7 +177,7 @@ cis_section7_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     bad=$(awk -F: '$2 != "x" {print $1 ":" $2}' /etc/passwd)
     [ -z "$bad" ] || { echo "$bad"; exit 1; }
     echo 'All accounts use shadowed passwords'
@@ -187,7 +187,7 @@ cis_section7_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     bad=$(awk -F: '$2 == "" {print $1}' /etc/shadow)
     [ -z "$bad" ] || { echo "$bad"; exit 1; }
     echo 'No empty shadow passwords'
@@ -197,7 +197,7 @@ cis_section7_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     bad=$(awk -F: 'NR==FNR{g[$3]=1;next}!($4 in g){print $1 ":" $4}' /etc/group /etc/passwd)
     [ -z "$bad" ] || { echo "$bad"; exit 1; }
     echo 'All primary groups exist'
@@ -207,7 +207,7 @@ cis_section7_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     m=$(getent group shadow | cut -d: -f4)
     p=$(awk -F: '$4==42{print $1}' /etc/passwd)
     [ -z "$m$p" ] || { echo "members=$m primary=$p"; exit 1; }
@@ -218,7 +218,7 @@ cis_section7_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     bad=$(cut -d: -f3 /etc/passwd | sort | uniq -d)
     [ -z "$bad" ] || { echo "Duplicate UID: $bad"; exit 1; }
     echo 'No duplicate UIDs'
@@ -228,7 +228,7 @@ cis_section7_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     bad=$(cut -d: -f3 /etc/group | sort | uniq -d)
     [ -z "$bad" ] || { echo "Duplicate GID: $bad"; exit 1; }
     echo 'No duplicate GIDs'
@@ -238,7 +238,7 @@ cis_section7_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     bad=$(cut -d: -f1 /etc/passwd | sort | uniq -d)
     [ -z "$bad" ] || { echo "Duplicate user: $bad"; exit 1; }
     echo 'No duplicate users'
@@ -248,7 +248,7 @@ cis_section7_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     bad=$(cut -d: -f1 /etc/group | sort | uniq -d)
     [ -z "$bad" ] || { echo "Duplicate group: $bad"; exit 1; }
     echo 'No duplicate groups'
@@ -258,7 +258,7 @@ cis_section7_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     u=$(awk '$1=="UID_MIN"{print $2}' /etc/login.defs|tail -1); [ -n "$u" ] || u=1000
     bad=''
     while IFS=: read -r n _ id _ _ h s; do [ "$id" -ge "$u" ] || continue; grep -qx "$s" /etc/shells || continue; [ -d "$h" ] || { bad="$bad\n$n missing $h"; continue; }; o=$(stat -Lc %U "$h"); m=$(stat -Lc %a "$h"); [ "$o" = "$n" ] || bad="$bad\n$n owner=$o"; [ $((8#$m & 0027)) -eq 0 ] || bad="$bad\n$n mode=$m"; done </etc/passwd
@@ -270,7 +270,7 @@ cis_section7_controls:
   - level1_server
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
-  audit: |
+  audit: !unsafe |
     u=$(awk '$1=="UID_MIN"{print $2}' /etc/login.defs|tail -1); [ -n "$u" ] || u=1000
     bad=''
     while IFS=: read -r n _ id _ _ h s; do [ "$id" -ge "$u" ] || continue; grep -qx "$s" /etc/shells || continue; [ -d "$h" ] || continue; for f in "$h"/.[!.]* "$h"/..?*; do [ -e "$f" ] || continue; b=${f##*/}; case "$b" in .forward|.rhosts) bad="$bad\n$n prohibited $f";; *) m=$(stat -Lc %a "$f"); [ $((8#$m & 0022)) -eq 0 ] || bad="$bad\n$n writable $f mode=$m";; esac; o=$(stat -Lc %U "$f"); [ "$o" = "$n" ] || bad="$bad\n$n $f owner=$o"; done; done </etc/passwd

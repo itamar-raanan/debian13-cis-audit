@@ -5,7 +5,7 @@ cis_job_scheduler_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: If cron is installed, its service is enabled and active.
-    audit: |
+    audit: !unsafe |
       if ! dpkg-query -W -f='${Status}' cron 2>/dev/null | grep -q '^install ok installed$'; then
         echo "cron is not installed; cron subsection is not applicable"
         exit 3
@@ -23,7 +23,7 @@ cis_job_scheduler_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: If cron is installed, /etc/crontab is owned by root:root and mode 0600 or more restrictive.
-    audit: |
+    audit: !unsafe |
       if ! dpkg-query -W -f='${Status}' cron 2>/dev/null | grep -q '^install ok installed$'; then exit 3; fi
       [ -e /etc/crontab ] || { echo "/etc/crontab is missing"; exit 1; }
       stat -Lc 'path=%n mode=%a uid=%u gid=%g' /etc/crontab
@@ -35,7 +35,7 @@ cis_job_scheduler_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: If cron is installed, /etc/cron.hourly is owned by root:root and mode 0700 or more restrictive.
-    audit: |
+    audit: !unsafe |
       if ! dpkg-query -W -f='${Status}' cron 2>/dev/null | grep -q '^install ok installed$'; then exit 3; fi
       [ -e /etc/cron.hourly ] || { echo "/etc/cron.hourly is missing"; exit 1; }
       stat -Lc 'path=%n mode=%a uid=%u gid=%g' /etc/cron.hourly
@@ -47,7 +47,7 @@ cis_job_scheduler_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: If cron is installed, /etc/cron.daily is owned by root:root and mode 0700 or more restrictive.
-    audit: |
+    audit: !unsafe |
       if ! dpkg-query -W -f='${Status}' cron 2>/dev/null | grep -q '^install ok installed$'; then exit 3; fi
       [ -e /etc/cron.daily ] || { echo "/etc/cron.daily is missing"; exit 1; }
       stat -Lc 'path=%n mode=%a uid=%u gid=%g' /etc/cron.daily
@@ -59,7 +59,7 @@ cis_job_scheduler_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: If cron is installed, /etc/cron.weekly is owned by root:root and mode 0700 or more restrictive.
-    audit: |
+    audit: !unsafe |
       if ! dpkg-query -W -f='${Status}' cron 2>/dev/null | grep -q '^install ok installed$'; then exit 3; fi
       [ -e /etc/cron.weekly ] || { echo "/etc/cron.weekly is missing"; exit 1; }
       stat -Lc 'path=%n mode=%a uid=%u gid=%g' /etc/cron.weekly
@@ -71,7 +71,7 @@ cis_job_scheduler_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: If cron is installed, /etc/cron.monthly is owned by root:root and mode 0700 or more restrictive.
-    audit: |
+    audit: !unsafe |
       if ! dpkg-query -W -f='${Status}' cron 2>/dev/null | grep -q '^install ok installed$'; then exit 3; fi
       [ -e /etc/cron.monthly ] || { echo "/etc/cron.monthly is missing"; exit 1; }
       stat -Lc 'path=%n mode=%a uid=%u gid=%g' /etc/cron.monthly
@@ -83,7 +83,7 @@ cis_job_scheduler_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: If cron is installed, /etc/cron.yearly is owned by root:root and mode 0700 or more restrictive.
-    audit: |
+    audit: !unsafe |
       if ! dpkg-query -W -f='${Status}' cron 2>/dev/null | grep -q '^install ok installed$'; then exit 3; fi
       [ -e /etc/cron.yearly ] || { echo "/etc/cron.yearly is missing"; exit 1; }
       stat -Lc 'path=%n mode=%a uid=%u gid=%g' /etc/cron.yearly
@@ -95,7 +95,7 @@ cis_job_scheduler_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: If cron is installed, /etc/cron.d is owned by root:root and mode 0700 or more restrictive.
-    audit: |
+    audit: !unsafe |
       if ! dpkg-query -W -f='${Status}' cron 2>/dev/null | grep -q '^install ok installed$'; then exit 3; fi
       [ -e /etc/cron.d ] || { echo "/etc/cron.d is missing"; exit 1; }
       stat -Lc 'path=%n mode=%a uid=%u gid=%g' /etc/cron.d
@@ -107,7 +107,7 @@ cis_job_scheduler_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: If cron is installed, /etc/cron.allow exists with root ownership and restrictive permissions, and /etc/cron.deny is absent.
-    audit: |
+    audit: !unsafe |
       if ! dpkg-query -W -f='${Status}' cron 2>/dev/null | grep -q '^install ok installed$'; then exit 3; fi
       fail=0
       if [ ! -f /etc/cron.allow ]; then echo "/etc/cron.allow is missing"; fail=1; else
@@ -125,7 +125,7 @@ cis_job_scheduler_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: If at is installed, /etc/at.allow exists with root ownership and restrictive permissions, and /etc/at.deny is absent.
-    audit: |
+    audit: !unsafe |
       if ! dpkg-query -W -f='${Status}' at 2>/dev/null | grep -q '^install ok installed$'; then
         echo "at is not installed; this recommendation is not applicable"
         exit 3

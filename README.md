@@ -258,3 +258,86 @@ ansible-playbook -i inventory.ini audit.yml \
 ## Coverage update
 
 This cumulative release includes all 333 recommendation IDs listed in CIS Debian Linux 13 Benchmark v1.0.0. Manual recommendations are reported as `MANUAL`; automated recommendations execute audit-only checks.
+
+## Remediation guidance in reports
+
+Each JSON, CSV, and HTML result now includes a `remediation` field. The HTML report displays it as a dedicated column beside the expected and actual states. Guidance is extracted from the CIS Debian Linux 13 Benchmark v1.0.0 where available.
+
+Remediation text can include commands that alter packages, services, authentication, networking, boot settings, or file permissions. Review applicability, operational impact, backups, approved exceptions, and change-control requirements before applying any command. This role remains audit-only and does not automatically remediate the target.
+
+### Remediation text safety
+
+The remediation catalog is stored in `roles/cis_debian13_audit/vars/main.yml`.
+Each remediation value is tagged with Ansible `!unsafe` so shell examples such as
+`${#array[@]}` are treated as literal report text and are not parsed by Jinja.
+
+---
+
+# CIS Debian 13 remediation role
+
+This archive now includes `roles/cis_debian13_remediate` and two playbooks:
+
+- `remediate.yml` — remediation only
+- `site.yml` — audit, remediation, then post-remediation audit
+
+## Safety model
+
+The role refuses to change a host unless both confirmation variables are true:
+
+```bash
+ansible-playbook -i inventory.ini remediate.yml \
+  -e cis_remediation_enabled=true \
+  -e cis_remediation_confirm=true
+```
+
+Potentially disruptive areas are disabled by default. Enable only after reviewing the target and maintaining console access:
+
+```yaml
+cis_allow_disruptive: false
+cis_allow_partition_changes: false
+cis_allow_bootloader_changes: false
+cis_allow_pam_changes: false
+cis_allow_ssh_changes: false
+cis_allow_firewall_changes: false
+cis_allow_network_changes: false
+cis_allow_service_removal: false
+cis_allow_updates: false
+cis_allow_reboot: false
+cis_allow_usb_storage_disable: false
+cis_allow_overlay_disable: false
+```
+
+## Recommended first run
+
+```bash
+ansible-playbook -i inventory.ini remediate.yml \
+  -e cis_remediation_enabled=true \
+  -e cis_remediation_confirm=true \
+  --check --diff
+```
+
+Then run a single section, for example:
+
+```bash
+ansible-playbook -i inventory.ini remediate.yml \
+  -e cis_remediation_enabled=true \
+  -e cis_remediation_confirm=true \
+  --tags cis_section_1
+```
+
+Backups and the manual-action report are placed below `/var/backups/cis-debian13/<timestamp>/` on each target.
+
+## Scope
+
+The remediation role covers Sections 1–7 with idempotent package, permission, sysctl, service, AppArmor, sudo, SSH, password-policy, logging, auditing, and account-database tasks. Controls that require organization-specific decisions—partitioning, firewall policy, GRUB secrets, time sources, account deletion, and similar manual controls—are deliberately gated or reported rather than applied blindly.
+
+This is intentional: automatically repartitioning disks, replacing a firewall ruleset, changing PAM/SSH authentication, or deleting accounts can make a host unavailable or destroy data.
+
+
+## Profile inheritance
+
+Profiles are cumulative. Selecting `level2_server` evaluates/remediates controls tagged for either `level1_server` or `level2_server`; `level2_workstation` similarly includes the Level 1 workstation baseline. The playbooks print both the selected profile and the effective profile list at startup. Known Level-2-only remediation groups are skipped during Level 1 runs.
+
+## Enhanced HTML report
+
+The HTML report includes a responsive dashboard, pass-rate indicator, summary cards, status filtering, full-text search, and an action-items view. Failed, error, and manual controls now show a concise **What you need to do** summary followed by three clear steps. The complete CIS remediation text remains available in an expandable **Detailed remediation guidance** panel so the report stays readable without removing technical detail.

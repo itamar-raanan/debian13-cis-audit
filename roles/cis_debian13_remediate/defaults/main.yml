@@ -1,0 +1,93 @@
+---
+cis_profile: level1_server
+
+
+# CIS Level 2 is cumulative: it includes the matching Level 1 baseline.
+cis_profile_inheritance:
+  level1_server: [level1_server]
+  level2_server: [level1_server, level2_server]
+  level1_workstation: [level1_workstation]
+  level2_workstation: [level1_workstation, level2_workstation]
+cis_effective_profiles: "{{ cis_profile_inheritance[cis_profile] | default([cis_profile]) }}"
+
+# Two independent confirmations are required before any change is made.
+cis_remediation_enabled: false
+cis_remediation_confirm: false
+
+# Potentially disruptive groups remain disabled unless explicitly approved.
+cis_allow_disruptive: false
+cis_allow_partition_changes: false
+cis_allow_bootloader_changes: false
+cis_allow_pam_changes: false
+cis_allow_ssh_changes: false
+cis_allow_firewall_changes: false
+cis_allow_network_changes: false
+cis_allow_service_removal: false
+cis_allow_updates: false
+cis_allow_reboot: false
+cis_allow_usb_storage_disable: false
+cis_allow_overlay_disable: false
+
+cis_backup_root: /var/backups/cis-debian13
+cis_backup_timestamp: "{{ ansible_date_time.iso8601_basic_short | default('unknown') }}"
+cis_backup_dir: "{{ cis_backup_root }}/{{ cis_backup_timestamp }}"
+cis_sysctl_file: /etc/sysctl.d/60-cis-debian13.conf
+cis_sshd_dropin: /etc/ssh/sshd_config.d/60-cis-debian13.conf
+cis_modprobe_file: /etc/modprobe.d/60-cis-debian13.conf
+cis_audit_rules_file: /etc/audit/rules.d/60-cis-debian13.rules
+cis_login_banner: "Authorized uses only. All activity may be monitored and reported."
+cis_chrony_servers: []
+cis_timesyncd_ntp: ""
+cis_password_min_days: 1
+cis_password_max_days: 365
+cis_password_warn_age: 7
+cis_umask: "027"
+cis_inactive_days: 30
+cis_sshd_allow_users: []
+cis_sshd_allow_groups: []
+cis_sshd_deny_users: []
+cis_sshd_deny_groups: []
+
+cis_disable_services:
+  - autofs
+  - avahi-daemon
+  - isc-dhcp-server
+  - isc-dhcp-server6
+  - bind9
+  - dnsmasq
+  - vsftpd
+  - slapd
+  - dovecot
+  - nfs-server
+  - rpcbind
+  - rsync
+  - snmpd
+  - tftpd-hpa
+  - squid
+  - apache2
+  - nginx
+  - xinetd
+
+cis_remove_client_packages:
+  - ftp
+  - telnet
+  - talk
+  - rsh-client
+
+cis_manual_controls:
+  - id: 1.1.1.11
+    reason: Requires site-approved review of filesystem modules and dependencies.
+  - id: 1.1.2
+    reason: Creating or moving partitions requires storage design, backup and maintenance windows.
+  - id: 1.4.1
+    reason: GRUB password and break-glass procedure require organization-specific secrets.
+  - id: 1.6
+    reason: Cryptographic policy depends on approved organizational policy.
+  - id: 2.1.1
+    reason: Time sources must be supplied by the organization.
+  - id: 4.1
+    reason: Firewall policy must be approved to avoid loss of connectivity.
+  - id: 6.3
+    reason: Audit rules must be aligned with local paths, identities and retention requirements.
+  - id: 7.2
+    reason: Account cleanup requires ownership and business approval.

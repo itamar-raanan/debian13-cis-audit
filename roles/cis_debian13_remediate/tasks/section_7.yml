@@ -1,0 +1,46 @@
+---
+- name: Secure critical account databases
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    owner: root
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - {path: /etc/passwd, group: root, mode: '0644'}
+    - {path: /etc/passwd-, group: root, mode: '0644'}
+    - {path: /etc/group, group: root, mode: '0644'}
+    - {path: /etc/group-, group: root, mode: '0644'}
+    - {path: /etc/shadow, group: shadow, mode: '0640'}
+    - {path: /etc/shadow-, group: shadow, mode: '0640'}
+    - {path: /etc/gshadow, group: shadow, mode: '0640'}
+    - {path: /etc/gshadow-, group: shadow, mode: '0640'}
+  failed_when: false
+
+- name: Find world-writable directories without sticky bit
+  ansible.builtin.shell: |
+    set -o pipefail
+    find / -xdev -type d -perm -0002 ! -perm -1000 -print0 2>/dev/null
+  args:
+    executable: /bin/bash
+  register: cis_world_writable_dirs
+  changed_when: false
+
+- name: Set sticky bit on world-writable directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    mode: 'a+t'
+  loop: "{{ cis_world_writable_dirs.stdout.split('\u0000') | reject('equalto', '') | list }}"
+
+- name: Find unowned files on local filesystems
+  ansible.builtin.command: find / -xdev -nouser -print0
+  register: cis_unowned_files
+  changed_when: false
+  failed_when: false
+
+- name: Report unowned files without changing ownership
+  ansible.builtin.copy:
+    dest: "{{ cis_backup_dir }}/unowned-files.txt"
+    content: "{{ cis_unowned_files.stdout | replace('\u0000', '\n') }}"
+    owner: root
+    group: root
+    mode: '0600'

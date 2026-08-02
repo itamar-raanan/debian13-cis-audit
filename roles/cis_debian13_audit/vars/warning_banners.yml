@@ -5,7 +5,7 @@ cis_warning_banner_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: MOTD content contains no OS-identifying escape sequences or operating-system name; remaining content must follow local policy
-    audit: |
+    audit: !unsafe |
       os_id="$(awk -F= '$1 == "ID" {gsub(/\"/, "", $2); print $2}' /etc/os-release 2>/dev/null)"
       found=0
       reviewed=0
@@ -34,7 +34,7 @@ cis_warning_banner_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: /etc/issue exists, contains no OS-identifying escape sequences or operating-system name, and follows local policy
-    audit: |
+    audit: !unsafe |
       [ -f /etc/issue ] || { echo "FAIL: /etc/issue does not exist"; exit 1; }
       os_id="$(awk -F= '$1 == "ID" {gsub(/\"/, "", $2); print $2}' /etc/os-release 2>/dev/null)"
       if grep -Pqsi -- "(\\\\v|\\\\r|\\\\m|\\\\s${os_id:+|\\b${os_id}\\b})" /etc/issue; then
@@ -50,7 +50,7 @@ cis_warning_banner_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: /etc/issue.net exists, contains no OS-identifying escape sequences or operating-system name, and follows local policy
-    audit: |
+    audit: !unsafe |
       [ -f /etc/issue.net ] || { echo "FAIL: /etc/issue.net does not exist"; exit 1; }
       os_id="$(awk -F= '$1 == "ID" {gsub(/\"/, "", $2); print $2}' /etc/os-release 2>/dev/null)"
       if grep -Pqsi -- "(\\\\v|\\\\r|\\\\m|\\\\s${os_id:+|\\b${os_id}\\b})" /etc/issue.net; then
@@ -66,7 +66,7 @@ cis_warning_banner_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: If /etc/motd exists, its resolved target is owned by root:root and mode is 0644 or more restrictive
-    audit: |
+    audit: !unsafe |
       if [ ! -e /etc/motd ]; then
         echo "PASS: /etc/motd does not exist"
         exit 0
@@ -86,7 +86,7 @@ cis_warning_banner_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: /etc/issue is owned by root:root and mode is 0644 or more restrictive
-    audit: |
+    audit: !unsafe |
       [ -e /etc/issue ] || { echo "FAIL: /etc/issue does not exist"; exit 1; }
       target="$(readlink -e /etc/issue)" || { echo "ERROR: cannot resolve /etc/issue"; exit 2; }
       read -r mode uid gid < <(stat -Lc '%a %u %g' "$target") || exit 2
@@ -103,7 +103,7 @@ cis_warning_banner_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: /etc/issue.net is owned by root:root and mode is 0644 or more restrictive
-    audit: |
+    audit: !unsafe |
       [ -e /etc/issue.net ] || { echo "FAIL: /etc/issue.net does not exist"; exit 1; }
       target="$(readlink -e /etc/issue.net)" || { echo "ERROR: cannot resolve /etc/issue.net"; exit 2; }
       read -r mode uid gid < <(stat -Lc '%a %u %g' "$target") || exit 2

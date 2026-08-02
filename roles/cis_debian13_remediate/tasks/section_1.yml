@@ -1,0 +1,152 @@
+---
+- name: Back up modprobe configuration target
+  ansible.builtin.include_tasks: backup.yml
+  vars: {cis_backup_source: "{{ cis_modprobe_file }}"}
+
+- name: Disable uncommon filesystem kernel modules
+  ansible.builtin.blockinfile:
+    path: "{{ cis_modprobe_file }}"
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+    marker: "# {mark} CIS DEBIAN 13 KERNEL MODULES"
+    block: |
+      install cramfs /bin/false
+      blacklist cramfs
+      install freevxfs /bin/false
+      blacklist freevxfs
+      install hfs /bin/false
+      blacklist hfs
+      install hfsplus /bin/false
+      blacklist hfsplus
+      install jffs2 /bin/false
+      blacklist jffs2
+      install udf /bin/false
+      blacklist udf
+      install firewire-core /bin/false
+      blacklist firewire-core
+      {% if cis_allow_usb_storage_disable | bool %}
+      install usb-storage /bin/false
+      blacklist usb-storage
+      {% endif %}
+      {% if cis_allow_overlay_disable | bool %}
+      install overlay /bin/false
+      blacklist overlay
+      {% endif %}
+  notify: Update initramfs
+
+- name: Unload approved kernel modules
+  ansible.builtin.command: "modprobe -r {{ item }}"
+  changed_when: false
+  loop: "{{ ['cramfs','freevxfs','hfs','hfsplus','jffs2','udf','firewire-core'] + (['usb-storage'] if cis_allow_usb_storage_disable | bool else []) + (['overlay'] if cis_allow_overlay_disable | bool else []) }}"
+  failed_when: false
+  when: cis_allow_disruptive | bool
+
+- name: Configure APT weak dependencies
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/60-no-weak-dependencies
+    content: |
+      APT::Install-Recommends "0";
+      APT::Install-Suggests "0";
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Secure APT directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - {path: /etc/apt/trusted.gpg.d, mode: '0755'}
+    - {path: /etc/apt/auth.conf.d, mode: '0755'}
+    - {path: /usr/share/keyrings, mode: '0755'}
+    - {path: /etc/apt/sources.list.d, mode: '0755'}
+
+- name: Find APT source and authentication files
+  ansible.builtin.find:
+    paths: "{{ item.path }}"
+    patterns: "{{ item.patterns }}"
+    file_type: file
+  loop:
+    - {path: /etc/apt/auth.conf.d, patterns: '*'}
+    - {path: /etc/apt/sources.list.d, patterns: '*'}
+  register: cis_apt_files
+
+- name: Secure APT files
+  ansible.builtin.file:
+    path: "{{ item.1.path }}"
+    owner: root
+    group: root
+    mode: "{{ '0640' if item.0.item.path == '/etc/apt/auth.conf.d' else '0644' }}"
+  loop: "{{ cis_apt_files.results | subelements('files', skip_missing=True) }}"
+
+- name: Install and start AppArmor
+  ansible.builtin.apt:
+    name: [apparmor, apparmor-utils]
+    state: present
+    update_cache: false
+  notify: Restart AppArmor
+
+- name: Enable AppArmor service
+  ansible.builtin.systemd_service:
+    name: apparmor
+    enabled: true
+    state: started
+
+- name: Enforce loaded AppArmor profiles
+  ansible.builtin.command: aa-enforce /etc/apparmor.d/*
+  changed_when: false
+  failed_when: false
+  when: cis_allow_disruptive | bool
+
+- name: Back up sysctl configuration target
+  ansible.builtin.include_tasks: backup.yml
+  vars: {cis_backup_source: "{{ cis_sysctl_file }}"}
+
+- name: Configure process-hardening kernel parameters
+  ansible.builtin.blockinfile:
+    path: "{{ cis_sysctl_file }}"
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+    marker: "# {mark} CIS PROCESS HARDENING"
+    block: |
+      fs.suid_dumpable = 0
+      kernel.randomize_va_space = 2
+      kernel.yama.ptrace_scope = 1
+      kernel.unprivileged_bpf_disabled = 1
+      net.core.bpf_jit_harden = 2
+      kernel.apparmor_restrict_unprivileged_unconfined = 1
+  notify: Reload sysctl
+
+- name: Secure GRUB configuration permissions
+  ansible.builtin.file:
+    path: /boot/grub/grub.cfg
+    owner: root
+    group: root
+    mode: '0600'
+  when: ansible_facts.stat is not defined
+  failed_when: false
+
+- name: Configure legal banners
+  ansible.builtin.copy:
+    dest: "{{ item }}"
+    content: "{{ cis_login_banner }}\n"
+    owner: root
+    group: root
+    mode: '0644'
+  loop: [/etc/issue, /etc/issue.net]
+
+- name: Configure MOTD permissions
+  ansible.builtin.file:
+    path: /etc/motd
+    state: touch
+    owner: root
+    group: root
+    mode: '0644'
+    modification_time: preserve
+    access_time: preserve

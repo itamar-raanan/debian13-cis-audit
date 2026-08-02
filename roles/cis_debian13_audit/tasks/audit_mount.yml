@@ -52,6 +52,8 @@
            (' and tmp.mount is not disabled or masked' if cis_control.boot_check | default(false) else '')
            if cis_control.check == 'mount' else
            cis_control.option ~ ' is present in mount options for ' ~ cis_control.mount),
+        'remediation': cis_remediations.get(cis_control.id,
+          'Configure the required dedicated mount or mount option, then remount or reboot and re-run the audit.'),
         'actual':
           ('Documented exception: ' ~ cis_exceptions[cis_control.id] if cis_control.id in cis_exceptions else
            'findmnt_rc=' ~ (cis_mount_info.rc | string) ~

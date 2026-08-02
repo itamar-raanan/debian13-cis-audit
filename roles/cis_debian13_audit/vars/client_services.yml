@@ -5,7 +5,7 @@ cis_client_service_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: The nis package is not installed.
-    audit: |
+    audit: !unsafe |
       if dpkg-query -W -f='${Status}' nis 2>/dev/null | grep -q '^install ok installed$'; then
         echo "nis is installed"
         exit 1
@@ -18,7 +18,7 @@ cis_client_service_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: The rsh-client package is not installed.
-    audit: |
+    audit: !unsafe |
       if dpkg-query -W -f='${Status}' rsh-client 2>/dev/null | grep -q '^install ok installed$'; then
         echo "rsh-client is installed"
         exit 1
@@ -31,7 +31,7 @@ cis_client_service_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: Neither talk nor inetutils-talk is installed.
-    audit: |
+    audit: !unsafe |
       installed=()
       for package in talk inetutils-talk; do
         if dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -q '^install ok installed$'; then
@@ -50,7 +50,7 @@ cis_client_service_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: Neither telnet nor inetutils-telnet is installed.
-    audit: |
+    audit: !unsafe |
       installed=()
       for package in telnet inetutils-telnet; do
         if dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -q '^install ok installed$'; then
@@ -69,7 +69,7 @@ cis_client_service_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: The ldap-utils package is not installed.
-    audit: |
+    audit: !unsafe |
       if dpkg-query -W -f='${Status}' ldap-utils 2>/dev/null | grep -q '^install ok installed$'; then
         echo "ldap-utils is installed"
         exit 1
@@ -82,7 +82,7 @@ cis_client_service_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: Neither ftp nor tnftp is installed.
-    audit: |
+    audit: !unsafe |
       installed=()
       for package in ftp tnftp; do
         if dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -q '^install ok installed$'; then

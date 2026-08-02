@@ -1,0 +1,56 @@
+---
+- name: Validate remediation confirmation
+  ansible.builtin.assert:
+    that:
+      - cis_remediation_enabled | bool
+      - cis_remediation_confirm | bool
+      - ansible_facts.distribution == 'Debian'
+      - ansible_facts.distribution_major_version == '13'
+      - cis_profile in ['level1_server', 'level2_server', 'level1_workstation', 'level2_workstation']
+    fail_msg: >-
+      Remediation is blocked. Set both cis_remediation_enabled=true and
+      cis_remediation_confirm=true, and run only on Debian 13.
+
+- name: Show selected and effective CIS remediation profiles
+  ansible.builtin.debug:
+    msg: "Selected profile={{ cis_profile }}; effective profiles={{ cis_effective_profiles | join(', ') }}"
+  changed_when: false
+  tags: [always]
+
+- name: Create backup directory
+  ansible.builtin.file:
+    path: "{{ cis_backup_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+
+- name: Run Section 1 remediation
+  ansible.builtin.import_tasks: section_1.yml
+  tags: [cis_section_1]
+- name: Run Section 2 remediation
+  ansible.builtin.import_tasks: section_2.yml
+  tags: [cis_section_2]
+- name: Run Section 3 remediation
+  ansible.builtin.import_tasks: section_3.yml
+  tags: [cis_section_3]
+- name: Run Section 4 remediation
+  ansible.builtin.import_tasks: section_4.yml
+  tags: [cis_section_4]
+- name: Run Section 5 remediation
+  ansible.builtin.import_tasks: section_5.yml
+  tags: [cis_section_5]
+- name: Run Section 6 remediation
+  ansible.builtin.import_tasks: section_6.yml
+  tags: [cis_section_6]
+- name: Run Section 7 remediation
+  ansible.builtin.import_tasks: section_7.yml
+  tags: [cis_section_7]
+- name: Write manual-action report
+  ansible.builtin.template:
+    src: manual-actions.md.j2
+    dest: "{{ cis_backup_dir }}/manual-actions.md"
+    owner: root
+    group: root
+    mode: '0600'
+  tags: [always]

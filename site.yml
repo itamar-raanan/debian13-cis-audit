@@ -1,0 +1,21 @@
+---
+- name: Pre-remediation CIS audit
+  hosts: all
+  gather_facts: true
+  become: true
+  roles:
+    - role: cis_debian13_audit
+
+- name: CIS Debian 13 remediation
+  hosts: all
+  gather_facts: true
+  become: true
+  roles:
+    - role: cis_debian13_remediate
+
+- name: Post-remediation CIS audit
+  hosts: all
+  gather_facts: true
+  become: true
+  roles:
+    - role: cis_debian13_audit

@@ -1,0 +1,24 @@
+PermitRootLogin no
+PermitEmptyPasswords no
+IgnoreRhosts yes
+HostbasedAuthentication no
+X11Forwarding no
+AllowTcpForwarding no
+AllowAgentForwarding no
+PermitUserEnvironment no
+LoginGraceTime 60
+MaxAuthTries 4
+MaxSessions 10
+MaxStartups 10:30:60
+ClientAliveInterval 15
+ClientAliveCountMax 3
+LogLevel VERBOSE
+UsePAM yes
+Banner /etc/issue.net
+Ciphers -3des-cbc,aes128-cbc,aes192-cbc,aes256-cbc
+MACs -hmac-md5,hmac-md5-96,hmac-sha1,hmac-sha1-96,umac-64@openssh.com,umac-64-etm@openssh.com
+KexAlgorithms -diffie-hellman-group1-sha1,diffie-hellman-group14-sha1,diffie-hellman-group-exchange-sha1
+{% if cis_sshd_allow_users | length > 0 %}AllowUsers {{ cis_sshd_allow_users | join(' ') }}{% endif %}
+{% if cis_sshd_allow_groups | length > 0 %}AllowGroups {{ cis_sshd_allow_groups | join(' ') }}{% endif %}
+{% if cis_sshd_deny_users | length > 0 %}DenyUsers {{ cis_sshd_deny_users | join(' ') }}{% endif %}
+{% if cis_sshd_deny_groups | length > 0 %}DenyGroups {{ cis_sshd_deny_groups | join(' ') }}{% endif %}

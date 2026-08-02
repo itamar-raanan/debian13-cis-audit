@@ -74,6 +74,8 @@
              'PASS' if (not cis_module_loaded and cis_module_blacklisted and cis_module_install_disabled) else
              'FAIL'),
           'expected': 'Module is absent, or is not loaded and is disabled with blacklist and install /bin/false or /bin/true.',
+          'remediation': cis_remediations.get(cis_control.id,
+            'Unload and disable the kernel module after confirming it is not required.'),
           'actual':
             ('Documented exception: ' ~ cis_exceptions[cis_control.id] if cis_control.id in cis_exceptions else
              'module_available=' ~ ((cis_module_available.stdout | length > 0) | string) ~

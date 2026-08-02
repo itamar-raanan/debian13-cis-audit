@@ -5,7 +5,7 @@ cis_time_sync_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: Exactly one of chrony.service or systemd-timesyncd.service is enabled and active, unless host-based synchronization is documented as an exception.
-    audit: |
+    audit: !unsafe |
       active=0
       enabled=0
       evidence=()
@@ -25,7 +25,7 @@ cis_time_sync_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: When systemd-timesyncd is in use, an effective NTP or FallbackNTP value is configured to locally approved time servers.
-    audit: |
+    audit: !unsafe |
       if ! systemctl is-active systemd-timesyncd.service 2>/dev/null | grep -qx active; then
         echo "systemd-timesyncd is not the active time synchronization daemon"
         exit 3
@@ -42,7 +42,7 @@ cis_time_sync_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: When systemd-timesyncd is selected, systemd-timesyncd.service is enabled and active.
-    audit: |
+    audit: !unsafe |
       if systemctl is-active chrony.service 2>/dev/null | grep -qx active; then
         echo "chrony is the active time synchronization daemon"
         exit 3
@@ -58,7 +58,7 @@ cis_time_sync_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: When chrony is in use, at least one locally approved server or pool directive is configured.
-    audit: |
+    audit: !unsafe |
       if ! systemctl is-active chrony.service 2>/dev/null | grep -qx active; then
         echo "chrony is not the active time synchronization daemon"
         exit 3
@@ -74,7 +74,7 @@ cis_time_sync_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: When chrony is in use, the chronyd process runs as user _chrony.
-    audit: |
+    audit: !unsafe |
       if ! systemctl is-active chrony.service 2>/dev/null | grep -qx active; then
         echo "chrony is not the active time synchronization daemon"
         exit 3
@@ -88,7 +88,7 @@ cis_time_sync_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: When chrony is selected, chrony.service is enabled and active.
-    audit: |
+    audit: !unsafe |
       if systemctl is-active systemd-timesyncd.service 2>/dev/null | grep -qx active; then
         echo "systemd-timesyncd is the active time synchronization daemon"
         exit 3

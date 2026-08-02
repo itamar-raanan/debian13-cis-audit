@@ -5,7 +5,7 @@ cis_host_firewall_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: The ufw package is installed
-    audit: |
+    audit: !unsafe |
       if dpkg-query -W -f='${db:Status-Status}\n' ufw 2>/dev/null | grep -qx installed; then
         echo 'ufw is installed'
         exit 0
@@ -18,7 +18,7 @@ cis_host_firewall_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: ufw.service is enabled and active, and ufw reports Status active
-    audit: |
+    audit: !unsafe |
       if ! command -v ufw >/dev/null 2>&1; then
         echo 'ufw command is unavailable'
         exit 1
@@ -34,7 +34,7 @@ cis_host_firewall_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: The UFW incoming default policy is deny or reject
-    audit: |
+    audit: !unsafe |
       if ! command -v ufw >/dev/null 2>&1; then
         echo 'ufw command is unavailable'
         exit 1
@@ -52,7 +52,7 @@ cis_host_firewall_controls:
     assessment: Automated
     profiles: [level2_server, level2_workstation]
     expected: The UFW outgoing default policy is deny or reject
-    audit: |
+    audit: !unsafe |
       if ! command -v ufw >/dev/null 2>&1; then
         echo 'ufw command is unavailable'
         exit 1
@@ -70,7 +70,7 @@ cis_host_firewall_controls:
     assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: The UFW routed default policy is disabled or deny
-    audit: |
+    audit: !unsafe |
       if ! command -v ufw >/dev/null 2>&1; then
         echo 'ufw command is unavailable'
         exit 1

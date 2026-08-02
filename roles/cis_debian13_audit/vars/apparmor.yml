@@ -5,7 +5,7 @@ cis_apparmor_controls:
     assessment: Automated
     profiles: [level1_server, level1_workstation, level2_server, level2_workstation]
     expected: Packages apparmor and apparmor-utils are installed.
-    audit: |
+    audit: !unsafe |
       missing=0
       for package in apparmor apparmor-utils; do
         status="$(dpkg-query -W -f='${db:Status-Status}' "$package" 2>/dev/null || true)"
@@ -19,7 +19,7 @@ cis_apparmor_controls:
     assessment: Automated
     profiles: [level1_server, level1_workstation, level2_server, level2_workstation]
     expected: No Linux boot entry contains apparmor=0.
-    audit: |
+    audit: !unsafe |
       cfg=/boot/grub/grub.cfg
       [[ -r "$cfg" ]] || { echo "cannot read $cfg"; exit 2; }
       matches="$(grep -E '^\s*linux' "$cfg" | grep -E '(^|[[:space:]])apparmor=0([[:space:]]|$)' || true)"
@@ -31,7 +31,7 @@ cis_apparmor_controls:
     assessment: Automated
     profiles: [level2_server, level2_workstation]
     expected: Profiles are loaded; zero profiles/processes are in complain mode; zero profiled processes are unconfined.
-    audit: |
+    audit: !unsafe |
       command -v apparmor_status >/dev/null 2>&1 || { echo 'apparmor_status not found'; exit 2; }
       output="$(apparmor_status 2>&1)" || { printf '%s\n' "$output"; exit 2; }
       printf '%s\n' "$output"
@@ -46,7 +46,7 @@ cis_apparmor_controls:
     assessment: Automated
     profiles: [level1_server, level1_workstation, level2_server, level2_workstation]
     expected: kernel.apparmor_restrict_unprivileged_unconfined equals 1 at runtime and in effective persistent configuration.
-    audit: |
+    audit: !unsafe |
       parameter=kernel.apparmor_restrict_unprivileged_unconfined
       runtime="$(sysctl -n "$parameter" 2>/dev/null || true)"
       persistent=""

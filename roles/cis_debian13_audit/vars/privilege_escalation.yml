@@ -8,7 +8,7 @@ cis_privilege_escalation_controls:
       - level2_server
       - level2_workstation
     expected: sudo or sudo-ldap is installed, or both libsss-sudo and sssd are installed
-    audit: |
+    audit: !unsafe |
       if dpkg-query -W -f='${Status}' sudo sudo-ldap 2>/dev/null | grep -q 'install ok installed'; then
         dpkg-query -W -f='${Package}: ${Status}\n' sudo sudo-ldap 2>/dev/null | grep 'install ok installed'
         exit 0
@@ -25,7 +25,7 @@ cis_privilege_escalation_controls:
     title: Ensure sudo commands use pty
     profiles: *all_profiles
     expected: An effective Defaults use_pty setting exists and no active Defaults !use_pty setting exists
-    audit: |
+    audit: !unsafe |
       command -v sudo >/dev/null 2>&1 || { echo 'sudo is not installed'; exit 1; }
       files=(/etc/sudoers)
       while IFS= read -r -d '' f; do files+=("$f"); done < <(find /etc/sudoers.d -maxdepth 1 -type f ! -name '*.*' ! -name '*~' -print0 2>/dev/null)
@@ -40,7 +40,7 @@ cis_privilege_escalation_controls:
     title: Ensure sudo log file exists
     profiles: *all_profiles
     expected: An active sudo Defaults logfile setting points to a non-empty absolute path
-    audit: |
+    audit: !unsafe |
       command -v sudo >/dev/null 2>&1 || { echo 'sudo is not installed'; exit 1; }
       files=(/etc/sudoers)
       while IFS= read -r -d '' f; do files+=("$f"); done < <(find /etc/sudoers.d -maxdepth 1 -type f ! -name '*.*' ! -name '*~' -print0 2>/dev/null)
@@ -55,7 +55,7 @@ cis_privilege_escalation_controls:
       - level2_server
       - level2_workstation
     expected: No active NOPASSWD tags exist in sudoers configuration
-    audit: |
+    audit: !unsafe |
       command -v sudo >/dev/null 2>&1 || { echo 'sudo is not installed'; exit 1; }
       files=(/etc/sudoers)
       while IFS= read -r -d '' f; do files+=("$f"); done < <(find /etc/sudoers.d -maxdepth 1 -type f ! -name '*.*' ! -name '*~' -print0 2>/dev/null)
@@ -68,7 +68,7 @@ cis_privilege_escalation_controls:
     title: Ensure re-authentication for privilege escalation is not disabled globally
     profiles: *all_profiles
     expected: No active !authenticate tags exist in sudoers configuration
-    audit: |
+    audit: !unsafe |
       command -v sudo >/dev/null 2>&1 || { echo 'sudo is not installed'; exit 1; }
       files=(/etc/sudoers)
       while IFS= read -r -d '' f; do files+=("$f"); done < <(find /etc/sudoers.d -maxdepth 1 -type f ! -name '*.*' ! -name '*~' -print0 2>/dev/null)
@@ -81,7 +81,7 @@ cis_privilege_escalation_controls:
     title: Ensure sudo timestamp_timeout is configured
     profiles: *all_profiles
     expected: Every configured timestamp_timeout is between 0 and 15 minutes; otherwise the sudo default is at most 15 minutes
-    audit: |
+    audit: !unsafe |
       command -v sudo >/dev/null 2>&1 || { echo 'sudo is not installed'; exit 1; }
       files=(/etc/sudoers)
       while IFS= read -r -d '' f; do files+=("$f"); done < <(find /etc/sudoers.d -maxdepth 1 -type f ! -name '*.*' ! -name '*~' -print0 2>/dev/null)
@@ -106,7 +106,7 @@ cis_privilege_escalation_controls:
     title: Ensure access to the su command is restricted
     profiles: *all_profiles
     expected: pam_wheel is required or requisite with use_uid and group=<empty_group>, and that group has no members
-    audit: |
+    audit: !unsafe |
       [ -f /etc/pam.d/su ] || { echo '/etc/pam.d/su is missing'; exit 1; }
       line="$(grep -Pi '^\s*auth\s+(required|requisite)\s+pam_wheel\.so\s+.*\buse_uid\b.*\bgroup=\S+' /etc/pam.d/su | tail -1 || true)"
       if [ -z "$line" ]; then
