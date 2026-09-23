@@ -3,14 +3,14 @@
   ansible.builtin.include_vars:
     file: "{{ item }}"
   loop:
-    - "{{ role_path }}/vars/kernel_modules.yml"
-    - "{{ role_path }}/vars/filesystem_mounts.yml"
-    - "{{ role_path }}/vars/package_management.yml"
-    - "{{ role_path }}/vars/apparmor.yml"
-    - "{{ role_path }}/vars/bootloader.yml"
-    - "{{ role_path }}/vars/process_hardening.yml"
-    - "{{ role_path }}/vars/warning_banners.yml"
-    - "{{ role_path }}/vars/gdm.yml"
+    - kernel_modules.yml
+    - filesystem_mounts.yml
+    - package_management.yml
+    - apparmor.yml
+    - bootloader.yml
+    - process_hardening.yml
+    - warning_banners.yml
+    - gdm.yml
   tags:
     - section_1
     - section_1_1

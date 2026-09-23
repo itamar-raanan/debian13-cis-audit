@@ -10,11 +10,19 @@
         'profiles': cis_control.profiles,
         'status': ('EXCLUDED' if cis_control.id in cis_exceptions else 'MANUAL'),
         'expected': cis_control.expected,
+        'expected_evidence': cis_control.expected,
+        'check_type': 'manual',
+        'check_commands': [],
+        'how_to_check': cis_control.guidance,
         'remediation': cis_remediations.get(cis_control.id,
           'Review the control evidence and expected state, apply the approved configuration change, and re-run the audit.'),
         'actual':
           ('Documented exception: ' ~ cis_exceptions[cis_control.id]
            if cis_control.id in cis_exceptions else cis_control.guidance),
+        'evidence_text':
+          ('Documented exception: ' ~ cis_exceptions[cis_control.id]
+           if cis_control.id in cis_exceptions else
+           'Manual evidence has not been collected by the automated audit.'),
         'evidence': {'guidance': cis_control.guidance}
       }] }}
   changed_when: false

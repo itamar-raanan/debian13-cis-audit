@@ -1,7 +1,7 @@
 ---
 - name: Load Section 2 control definitions
   ansible.builtin.include_vars:
-    file: "{{ role_path }}/vars/server_services.yml"
+    file: server_services.yml
   tags: [section_2, section_2_1]
 
 - name: Section 2.1 - Automated server service controls
@@ -24,7 +24,7 @@
 
 - name: Load Section 2.2 control definitions
   ansible.builtin.include_vars:
-    file: "{{ role_path }}/vars/client_services.yml"
+    file: client_services.yml
   tags: [section_2, section_2_2]
 
 - name: Section 2.2 - Automated client service controls
@@ -38,7 +38,7 @@
 
 - name: Load Section 2.3 control definitions
   ansible.builtin.include_vars:
-    file: "{{ role_path }}/vars/time_sync.yml"
+    file: time_sync.yml
   tags: [section_2, section_2_3]
 
 - name: Section 2.3 - Time synchronization controls
@@ -52,7 +52,7 @@
 
 - name: Load Section 2.4 control definitions
   ansible.builtin.include_vars:
-    file: "{{ role_path }}/vars/job_schedulers.yml"
+    file: job_schedulers.yml
   tags: [section_2, section_2_4]
 
 - name: Section 2.4 - Job scheduler controls

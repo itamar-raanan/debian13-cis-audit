@@ -197,6 +197,7 @@ cis_section6_controls:
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
   audit: !unsafe |
+    [ -r /etc/audit/auditd.conf ] || { echo 'auditd configuration is missing: /etc/audit/auditd.conf'; exit 1; }
     v=$(awk -F= '/^[[:space:]]*max_log_file[[:space:]]*=/{gsub(/[[:space:]]/,"",$2);print $2}' /etc/audit/auditd.conf | tail -1)
     [ -n "$v" ] && [ "$v" -gt 0 ] || { echo 'max_log_file missing'; exit 1; }
     echo "max_log_file=$v (verify against policy)"
@@ -207,6 +208,7 @@ cis_section6_controls:
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
   audit: !unsafe |
+    [ -r /etc/audit/auditd.conf ] || { echo 'auditd configuration is missing: /etc/audit/auditd.conf'; exit 1; }
     v=$(grep -hE '^[[:space:]]*max_log_file_action[[:space:]]*=' /etc/audit/auditd.conf 2>/dev/null | sed -E 's/^[^=]+=[[:space:]]*//;s/[[:space:]]*(#.*)?$//' | tail -1 | tr '[:upper:]' '[:lower:]')
     [ "$v" = "keep_logs" ] || { echo 'max_log_file_action='"${v:-unset}"', expected keep_logs'; exit 1; }
     echo 'max_log_file_action='$v
@@ -217,6 +219,7 @@ cis_section6_controls:
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
   audit: !unsafe |
+    [ -r /etc/audit/auditd.conf ] || { echo 'auditd configuration is missing: /etc/audit/auditd.conf'; exit 1; }
     fail=0
     a=$(awk -F= '/^[[:space:]]*disk_full_action[[:space:]]*=/{gsub(/[[:space:]]/,"",$2);print tolower($2)}' /etc/audit/auditd.conf | tail -1)
     b=$(awk -F= '/^[[:space:]]*disk_error_action[[:space:]]*=/{gsub(/[[:space:]]/,"",$2);print tolower($2)}' /etc/audit/auditd.conf | tail -1)
@@ -230,6 +233,7 @@ cis_section6_controls:
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
   audit: !unsafe |
+    [ -r /etc/audit/auditd.conf ] || { echo 'auditd configuration is missing: /etc/audit/auditd.conf'; exit 1; }
     fail=0
     a=$(awk -F= '/^[[:space:]]*space_left_action[[:space:]]*=/{gsub(/[[:space:]]/,"",$2);print tolower($2)}' /etc/audit/auditd.conf | tail -1)
     b=$(awk -F= '/^[[:space:]]*admin_space_left_action[[:space:]]*=/{gsub(/[[:space:]]/,"",$2);print tolower($2)}' /etc/audit/auditd.conf | tail -1)
@@ -562,7 +566,9 @@ cis_section6_controls:
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
   audit: !unsafe |
+    [ -r /etc/audit/auditd.conf ] || { echo 'auditd configuration is missing: /etc/audit/auditd.conf'; exit 1; }
     d=$(awk -F= '/^[[:space:]]*log_file[[:space:]]*=/{gsub(/[[:space:]]/,"",$2);print $2}' /etc/audit/auditd.conf | xargs dirname 2>/dev/null); [ -n "$d" ] || d=/var/log/audit
+    [ -d "$d" ] || { echo "audit log directory is missing: $d"; exit 1; }
     bad=$(find "$d" -maxdepth 1 -type f -perm /0137 -printf '%m %p\n' 2>/dev/null)
     [ -z "$bad" ] || { echo "$bad"; exit 1; }
     echo 'Audit log modes compliant'
@@ -574,6 +580,7 @@ cis_section6_controls:
   expected: System satisfies the benchmark audit procedure
   audit: !unsafe |
     d=/var/log/audit
+    [ -d "$d" ] || { echo "audit log directory is missing: $d"; exit 1; }
     bad=$(find "$d" -maxdepth 1 -type f ! -user root -printf '%U %p\n' 2>/dev/null)
     [ -z "$bad" ] || { echo "$bad"; exit 1; }
     echo 'Audit logs owned by root'
@@ -584,6 +591,7 @@ cis_section6_controls:
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
   audit: !unsafe |
+    [ -d /var/log/audit ] || { echo 'audit log directory is missing: /var/log/audit'; exit 1; }
     bad=$(find /var/log/audit -maxdepth 1 -type f ! -group adm ! -group root -printf '%G %p\n' 2>/dev/null)
     [ -z "$bad" ] || { echo "$bad"; exit 1; }
     echo 'Audit logs group-owned by adm/root'
@@ -594,7 +602,8 @@ cis_section6_controls:
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
   audit: !unsafe |
-    m=$(stat -Lc %a /var/log/audit 2>/dev/null) || exit 2
+    [ -d /var/log/audit ] || { echo '/var/log/audit does not exist; verify that auditd is installed and initialized'; exit 1; }
+    m=$(stat -Lc %a /var/log/audit 2>/dev/null) || { echo 'Unable to read /var/log/audit permissions' >&2; exit 2; }
     [ $((8#$m & 0027)) -eq 0 ] || { echo "mode=$m"; exit 1; }
     echo "mode=$m"
 - id: 6.2.4.5
@@ -604,6 +613,7 @@ cis_section6_controls:
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
   audit: !unsafe |
+    [ -d /etc/audit ] || { echo 'audit configuration directory is missing: /etc/audit'; exit 1; }
     bad=$(find /etc/audit -type f -perm /0137 -printf '%m %p\n' 2>/dev/null)
     [ -z "$bad" ] || { echo "$bad"; exit 1; }
     echo 'Audit config modes compliant'
@@ -614,6 +624,7 @@ cis_section6_controls:
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
   audit: !unsafe |
+    [ -d /etc/audit ] || { echo 'audit configuration directory is missing: /etc/audit'; exit 1; }
     bad=$(find /etc/audit -type f ! -user root -printf '%U %p\n' 2>/dev/null)
     [ -z "$bad" ] || { echo "$bad"; exit 1; }
     echo 'Audit config owned by root'
@@ -624,6 +635,7 @@ cis_section6_controls:
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
   audit: !unsafe |
+    [ -d /etc/audit ] || { echo 'audit configuration directory is missing: /etc/audit'; exit 1; }
     bad=$(find /etc/audit -type f ! -group root -printf '%G %p\n' 2>/dev/null)
     [ -z "$bad" ] || { echo "$bad"; exit 1; }
     echo 'Audit config group-owned by root'
@@ -634,6 +646,7 @@ cis_section6_controls:
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
   audit: !unsafe |
+    command -v auditctl >/dev/null 2>&1 || { echo 'audit tools are not installed'; exit 1; }
     bad=$(for f in /sbin/auditctl /sbin/aureport /sbin/ausearch /sbin/autrace /sbin/auditd /sbin/augenrules; do [ -e "$f" ] || continue; m=$(stat -Lc %a "$f"); [ $((8#$m & 0022)) -eq 0 ] || echo "$m $f"; done)
     [ -z "$bad" ] || { echo "$bad"; exit 1; }
     echo 'Audit tool modes compliant'
@@ -644,6 +657,7 @@ cis_section6_controls:
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
   audit: !unsafe |
+    command -v auditctl >/dev/null 2>&1 || { echo 'audit tools are not installed'; exit 1; }
     bad=$(for f in /sbin/auditctl /sbin/aureport /sbin/ausearch /sbin/autrace /sbin/auditd /sbin/augenrules; do [ ! -e "$f" ] || [ "$(stat -Lc %u "$f")" = 0 ] || echo "$f"; done)
     [ -z "$bad" ] || { echo "$bad"; exit 1; }
     echo 'Audit tools owned by root'
@@ -654,6 +668,7 @@ cis_section6_controls:
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
   audit: !unsafe |
+    command -v auditctl >/dev/null 2>&1 || { echo 'audit tools are not installed'; exit 1; }
     bad=$(for f in /sbin/auditctl /sbin/aureport /sbin/ausearch /sbin/autrace /sbin/auditd /sbin/augenrules; do [ ! -e "$f" ] || [ "$(stat -Lc %g "$f")" = 0 ] || echo "$f"; done)
     [ -z "$bad" ] || { echo "$bad"; exit 1; }
     echo 'Audit tools group-owned by root'

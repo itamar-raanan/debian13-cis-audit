@@ -3,7 +3,14 @@
   ansible.builtin.shell: |
     set -o pipefail
     parameter={{ cis_control.parameter | quote }}
-    runtime="$(sysctl -n "$parameter" 2>/dev/null || true)"
+    sysctl_bin="$(command -v sysctl 2>/dev/null || true)"
+    [[ -n "$sysctl_bin" ]] || {
+      for candidate in /usr/sbin/sysctl /sbin/sysctl; do
+        [[ -x "$candidate" ]] && { sysctl_bin="$candidate"; break; }
+      done
+    }
+    [[ -n "$sysctl_bin" ]] || { echo 'sysctl executable not found' >&2; exit 2; }
+    runtime="$($sysctl_bin -n "$parameter" 2>/dev/null || true)"
     persistent=""
     persistent_file=""
     systemd_sysctl="$(readlink -e /lib/systemd/systemd-sysctl || readlink -e /usr/lib/systemd/systemd-sysctl || true)"
@@ -50,6 +57,15 @@
            'PASS' if cis_sysctl_audit.rc == 0 else
            'FAIL' if cis_sysctl_audit.rc == 1 else 'ERROR'),
         'expected': cis_control.expected,
+        'expected_evidence':
+          ('The runtime value and the final effective persistent definition are both one of: ' ~
+           (cis_control.allowed_values | join(', ')) ~ '.'),
+        'check_type': 'commands',
+        'check_commands': [
+          '"$(command -v sysctl || printf /usr/sbin/sysctl)" -n ' ~ cis_control.parameter,
+          '{ /lib/systemd/systemd-sysctl --cat-config 2>/dev/null || /usr/lib/systemd/systemd-sysctl --cat-config; } | grep -F ' ~ (cis_control.parameter | quote)
+        ],
+        'how_to_check': '',
         'remediation': cis_remediations.get(cis_control.id,
           'Review the control evidence and expected state, apply the approved configuration change, and re-run the audit.'),
         'actual':
@@ -57,6 +73,12 @@
            if cis_control.id in cis_exceptions else
            'rc=' ~ (cis_sysctl_audit.rc | string) ~
            '; ' ~ (cis_sysctl_audit.stdout | default('') | trim)),
+        'evidence_text':
+          ((cis_sysctl_audit.stdout | default('') | trim)
+           if (cis_sysctl_audit.stdout | default('') | trim | length) > 0 else
+           (cis_sysctl_audit.stderr | default('') | trim)
+           if (cis_sysctl_audit.stderr | default('') | trim | length) > 0 else
+           'The check produced no output.'),
         'evidence': {
           'stdout': cis_sysctl_audit.stdout_lines | default([]),
           'stderr': cis_sysctl_audit.stderr_lines | default([]),

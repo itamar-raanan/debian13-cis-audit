@@ -1,3 +1,3 @@
-id,title,status,expected,actual,remediation
-{% for result in cis_results %}"{{ result.id }}","{{ result.title | replace('"', '""') }}","{{ result.status }}","{{ result.expected | replace('"', '""') }}","{{ result.actual | replace('"', '""') }}","{{ result.remediation | default('No remediation guidance is available.') | replace('"', '""') }}"
+id,title,status,expected,how_to_check,actual,remediation
+{% for result in cis_results %}"{{ result.id }}","{{ result.title | replace('"', '""') }}","{{ result.status }}","{{ result.expected | replace('"', '""') }}","{{ ((result.check_commands | default([]) | join(' ; ')) if (result.check_commands | default([]) | length > 0) else (result.how_to_check | default('Review the control evidence and expected state.'))) | replace('"', '""') }}","{{ result.actual | replace('"', '""') }}","{{ result.remediation | default('No remediation guidance is available.') | replace('"', '""') }}"
 {% endfor %}

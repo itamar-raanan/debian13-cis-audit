@@ -32,8 +32,17 @@ cis_apparmor_controls:
     profiles: [level2_server, level2_workstation]
     expected: Profiles are loaded; zero profiles/processes are in complain mode; zero profiled processes are unconfined.
     audit: !unsafe |
-      command -v apparmor_status >/dev/null 2>&1 || { echo 'apparmor_status not found'; exit 2; }
-      output="$(apparmor_status 2>&1)" || { printf '%s\n' "$output"; exit 2; }
+      apparmor_status_bin="$(command -v apparmor_status 2>/dev/null || true)"
+      [[ -n "$apparmor_status_bin" ]] || {
+        for candidate in /usr/sbin/apparmor_status /sbin/apparmor_status; do
+          [[ -x "$candidate" ]] && { apparmor_status_bin="$candidate"; break; }
+        done
+      }
+      [[ -n "$apparmor_status_bin" ]] || {
+        echo 'apparmor_status executable not found; verify that apparmor-utils is installed' >&2
+        exit 2
+      }
+      output="$("$apparmor_status_bin" 2>&1)" || { printf '%s\n' "$output"; exit 2; }
       printf '%s\n' "$output"
       loaded="$(awk '/profiles are loaded/ {print $1; exit}' <<< "$output")"
       complain_profiles="$(awk '/profiles are in complain mode/ {print $1; exit}' <<< "$output")"

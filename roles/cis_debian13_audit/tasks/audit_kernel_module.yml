@@ -74,6 +74,16 @@
              'PASS' if (not cis_module_loaded and cis_module_blacklisted and cis_module_install_disabled) else
              'FAIL'),
           'expected': 'Module is absent, or is not loaded and is disabled with blacklist and install /bin/false or /bin/true.',
+          'expected_evidence':
+            ('No loaded ' ~ (cis_control.loaded_name | default(cis_control.module)) ~
+             ' module. If ' ~ cis_control.module ~
+             ' is available, modprobe configuration contains both blacklist and install /bin/false or /bin/true entries.'),
+          'check_type': 'commands',
+          'check_commands': [
+            '"$(command -v lsmod || printf /usr/sbin/lsmod)" | awk ' ~ (('$1 == "' ~ (cis_control.loaded_name | default(cis_control.module)) ~ '"') | quote),
+            '"$(command -v modprobe || printf /usr/sbin/modprobe)" --showconfig | awk ' ~ (('($1 == "blacklist" || $1 == "install") && $2 == "' ~ cis_control.module ~ '"') | quote)
+          ],
+          'how_to_check': '',
           'remediation': cis_remediations.get(cis_control.id,
             'Unload and disable the kernel module after confirming it is not required.'),
           'actual':
@@ -82,6 +92,11 @@
              ', module_loaded=' ~ (cis_module_loaded | string) ~
              ', blacklisted=' ~ (cis_module_blacklisted | string) ~
              ', install_disabled=' ~ (cis_module_install_disabled | string)),
+          'evidence_text':
+            ('Module available: ' ~ ((cis_module_available.stdout | length > 0) | string) ~ '; ' ~
+             'Module loaded: ' ~ (cis_module_loaded | string) ~ '; ' ~
+             'Blacklisted: ' ~ (cis_module_blacklisted | string) ~ '; ' ~
+             'Install disabled: ' ~ (cis_module_install_disabled | string)),
           'evidence': {
             'availability': cis_module_available.stdout_lines | default([]),
             'loaded_lines': cis_lsmod.stdout_lines | default([]) | select('match', '^' ~ (cis_control.loaded_name | default(cis_control.module)) ~ '\\s') | list,
