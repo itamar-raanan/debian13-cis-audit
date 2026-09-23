@@ -1,7 +1,7 @@
 ---
 - name: Load Section 6 controls
   ansible.builtin.include_vars:
-    file: "{{ role_path }}/vars/logging_auditing.yml"
+    file: logging_auditing.yml
   tags: [section_6]
 
 - name: Section 6 automated controls

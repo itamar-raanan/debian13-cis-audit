@@ -26,6 +26,13 @@
            'FAIL' if cis_shell_audit.rc == 1 else
            'NOT_APPLICABLE' if cis_shell_audit.rc == 3 else 'ERROR'),
         'expected': cis_control.expected,
+        'expected_evidence':
+          (('The command exits successfully and confirms: ' ~ cis_control.expected)
+           if cis_control.expected != 'System satisfies the benchmark audit procedure' else
+           'The command exits successfully and reports no non-compliant findings for this control.'),
+        'check_type': 'script',
+        'check_commands': [],
+        'how_to_check': cis_control.audit,
         'remediation': cis_remediations.get(cis_control.id,
           'Review the control evidence and expected state, apply the approved configuration change, and re-run the audit.'),
         'actual':
@@ -34,6 +41,12 @@
            'rc=' ~ (cis_shell_audit.rc | string) ~
            '; stdout=' ~ (cis_shell_audit.stdout | default('') | trim) ~
            '; stderr=' ~ (cis_shell_audit.stderr | default('') | trim)),
+        'evidence_text':
+          ((cis_shell_audit.stdout | default('') | trim)
+           if (cis_shell_audit.stdout | default('') | trim | length) > 0 else
+           (cis_shell_audit.stderr | default('') | trim)
+           if (cis_shell_audit.stderr | default('') | trim | length) > 0 else
+           'The check produced no output.'),
         'evidence': {
           'stdout': cis_shell_audit.stdout_lines | default([]),
           'stderr': cis_shell_audit.stderr_lines | default([]),

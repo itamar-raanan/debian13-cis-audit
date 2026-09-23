@@ -43,7 +43,7 @@ body {
     radial-gradient(circle at 95% 0%, rgba(124,58,237,.16), transparent 30rem),
     var(--bg);
   color: var(--text);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   line-height: 1.5;
 }
 .container { width: min(1680px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 48px; }
@@ -108,7 +108,7 @@ button:hover { border-color: var(--accent); }
   isolation: isolate;
   scroll-padding-top: 48px;
 }
-table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 1240px; }
+table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; min-width: 980px; }
 thead { position: relative; z-index: 12; }
 th {
   position: sticky;
@@ -122,11 +122,13 @@ th {
   text-align: left;
   box-shadow: 0 1px 0 var(--border);
 }
-th, td { padding: 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th, td { padding: 13px 12px; border-bottom: 1px solid var(--border); vertical-align: top; overflow-wrap: anywhere; }
 tbody tr:last-child td { border-bottom: 0; }
 tbody tr:hover { background: rgba(119,167,255,.045); }
-.control-id { white-space: nowrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 800; color: var(--accent); }
-.title { min-width: 230px; font-weight: 720; }
+.control-cell { width: 100%; }
+.control-id { display: block; margin-bottom: 9px; white-space: nowrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 800; color: var(--accent); }
+.title { margin: 0; font-size: .94rem; line-height: 1.35; font-weight: 760; }
+.target { margin: 9px 0 0; color: var(--muted); font-size: .8rem; }
 .badge { display: inline-flex; align-items: center; gap: 7px; border-radius: 999px; padding: 5px 9px; font-size: .72rem; font-weight: 850; letter-spacing: .04em; }
 .badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .badge.PASS { color: var(--pass); background: color-mix(in srgb, var(--pass) 13%, transparent); }
@@ -136,25 +138,58 @@ tbody tr:hover { background: rgba(119,167,255,.045); }
 .badge.ERROR { color: var(--error); background: color-mix(in srgb, var(--error) 13%, transparent); }
 .badge.NOT_APPLICABLE { color: var(--na); background: color-mix(in srgb, var(--na) 13%, transparent); }
 pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-.evidence { margin: 0; max-width: 470px; max-height: 170px; overflow: auto; white-space: pre-wrap; word-break: break-word; font-size: .78rem; color: var(--muted); }
-.expected { max-width: 300px; font-size: .84rem; }
-.action-card { min-width: 360px; max-width: 560px; border: 1px solid var(--border); background: var(--panel-2); border-radius: 14px; overflow: hidden; }
+.evidence-details { margin-top: 10px; border: 0; }
+.evidence-details summary { padding: 0; font-size: .77rem; }
+.evidence { margin: 8px 0 0; padding: 9px 10px; max-height: 150px; overflow: auto; border-radius: 8px; background: var(--bg); white-space: pre-wrap; word-break: break-word; font-size: .74rem; color: var(--muted); }
+.expected-evidence { margin-top: 10px; padding: 9px 10px; border: 1px solid color-mix(in srgb, var(--pass) 34%, var(--border)); border-radius: 9px; background: color-mix(in srgb, var(--pass) 6%, var(--panel)); }
+.expected-evidence strong { display: block; margin-bottom: 3px; color: var(--pass); font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; }
+.expected-evidence p { margin: 0; color: var(--muted); font-size: .76rem; }
+.check-card { width: 100%; }
+.check-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.check-intro { margin: 0; color: var(--muted); font-size: .78rem; }
+.copy-check { padding: 5px 8px; border-radius: 7px; font-size: .7rem; }
+.command-list { display: grid; gap: 6px; }
+.check-command { display: flex; align-items: flex-start; gap: 7px; margin: 0; padding: 10px 11px; max-height: 220px; overflow: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); white-space: pre; font-size: .74rem; line-height: 1.55; color: var(--text); }
+.check-command code { min-width: 0; white-space: pre; }
+.shell-prompt { color: var(--pass); user-select: none; }
+.manual-check { padding: 10px 11px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); white-space: pre-wrap; font-size: .78rem; color: var(--muted); }
+.action-card { width: 100%; border: 1px solid var(--border); background: var(--panel-2); border-radius: 14px; overflow: hidden; }
 .action-head { padding: 13px 14px; }
 .action-label { color: var(--fail); font-size: .69rem; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+.action-label.error { color: var(--error); }
+.action-label.manual { color: var(--manual); }
 .action-summary { margin-top: 5px; font-weight: 720; }
+.action-target { margin-top: 8px; color: var(--muted); font-size: .8rem; }
 .action-steps { margin: 10px 0 0; padding-left: 20px; color: var(--muted); font-size: .82rem; }
 .action-steps li + li { margin-top: 5px; }
 details { border-top: 1px solid var(--border); }
 summary { cursor: pointer; padding: 10px 14px; font-weight: 750; font-size: .8rem; color: var(--accent); user-select: none; }
-.remediation-raw { padding: 0 14px 14px; margin: 0; max-height: 380px; overflow: auto; white-space: pre-wrap; word-break: break-word; font-size: .77rem; color: var(--muted); }
+.remediation-content { padding: 0 14px 14px; max-height: 440px; overflow: auto; }
+.remediation-rendered { color: var(--muted); font-size: .8rem; }
+.remediation-rendered p { margin: 8px 0; }
+.remediation-rendered h4 { margin: 14px 0 6px; color: var(--text); font-size: .79rem; }
+.remediation-rendered ul { margin: 7px 0; padding-left: 20px; }
+.remediation-step { display: grid; grid-template-columns: 22px 1fr; gap: 8px; margin: 10px 0; }
+.step-number { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); font-size: .69rem; font-weight: 850; }
+.remediation-command { display: flex; gap: 7px; margin: 7px 0; padding: 9px 10px; overflow: auto; border-radius: 8px; background: var(--bg); color: var(--text); white-space: pre; font-size: .73rem; }
+.config-line { margin: 7px 0; padding: 9px 10px; overflow: auto; border-radius: 8px; background: var(--bg); color: var(--text); white-space: pre; font-size: .73rem; }
 .no-action { color: var(--muted); font-size: .84rem; }
-.safety { margin: 14px 0 0; padding: 13px 15px; border-left: 4px solid var(--excluded); background: color-mix(in srgb, var(--excluded) 8%, var(--panel)); border-radius: 10px; color: var(--muted); font-size: .85rem; }
+.safety { margin: 14px 0 0; padding: 13px 15px; border: 1px solid color-mix(in srgb, var(--excluded) 46%, var(--border)); background: color-mix(in srgb, var(--excluded) 8%, var(--panel)); border-radius: 10px; color: var(--muted); font-size: .85rem; }
 .empty { display: none; text-align: center; padding: 40px; color: var(--muted); }
 .footer { color: var(--muted); text-align: center; font-size: .78rem; margin-top: 18px; }
 @media (max-width: 1050px) { .cards { grid-template-columns: repeat(3, 1fr); } .toolbar { grid-template-columns: 1fr 1fr; } .toolbar input { grid-column: 1 / -1; } }
 @media (max-width: 700px) { .container { width: min(100% - 18px, 1680px); padding-top: 10px; } .hero { grid-template-columns: 1fr; } .score-ring { width: 110px; } .cards { grid-template-columns: repeat(2, 1fr); } .toolbar { grid-template-columns: 1fr; } .toolbar input { grid-column: auto; } }
 @media (max-width: 900px) {
-  .table-wrap { max-height: calc(100vh - 145px); }
+  .table-wrap { max-height: none; overflow: visible; border: 0; background: transparent; box-shadow: none; }
+  table { display: block; min-width: 0; }
+  thead { display: none; }
+  tbody { display: grid; gap: 12px; }
+  tbody tr { display: block; overflow: hidden; border: 1px solid var(--border); border-radius: 14px; background: var(--panel); }
+  tbody td { display: block; width: 100%; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  tbody td:last-child { border-bottom: 0; }
+  .control-cell { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .control-id { margin: 0; }
+  .check-command { max-height: 240px; }
 }
 @media print { body { background: #fff; color: #111; } .toolbar, .footer { display: none; } .container { width: 100%; padding: 0; } .hero, .card, .table-wrap { box-shadow: none; } th { position: static; } .table-wrap { overflow: visible; } table { min-width: 0; font-size: 8pt; } details > * { display: block !important; } }
 </style>
@@ -206,30 +241,85 @@ summary { cursor: pointer; padding: 10px 14px; font-weight: 750; font-size: .8re
 
   <div class="table-wrap">
     <table id="resultsTable">
-      <thead><tr><th>Control</th><th>Title</th><th>Status</th><th>Expected state</th><th>Evidence</th><th>What you need to do</th></tr></thead>
+      <colgroup><col style="width:10%"><col style="width:27%"><col style="width:28%"><col style="width:35%"></colgroup>
+      <thead><tr><th>Control</th><th>Requirement and evidence</th><th>How to check</th><th>What you need to do</th></tr></thead>
       <tbody>
       {% for result in cis_results %}
         <tr data-status="{{ result.status }}" data-control="{{ result.id }}">
-          <td class="control-id">{{ result.id }}</td>
-          <td class="title">{{ result.title }}</td>
-          <td><span class="badge {{ result.status }}">{{ result.status | replace('_', ' ') }}</span></td>
-          <td class="expected">{{ result.expected | e }}</td>
-          <td><pre class="evidence">{{ result.actual | e }}</pre></td>
-          <td>
+          <td><div class="control-cell"><span class="control-id">{{ result.id }}</span><span class="badge {{ result.status }}">{{ result.status | replace('_', ' ') }}</span></div></td>
+          <td class="requirement-cell">
+            <h3 class="title">{{ result.title }}</h3>
+            <p class="target"><strong>Expected:</strong> {{ result.expected | e }}</p>
+            <details class="evidence-details">
+              <summary>Show collected evidence</summary>
+              <pre class="evidence">{{ result.evidence_text | default(result.actual) | e }}</pre>
+            </details>
+            <div class="expected-evidence">
+              <strong>Expected evidence</strong>
+              <p>{{ result.expected_evidence | default(result.expected) | e }}</p>
+            </div>
+          </td>
+          <td class="check-cell">
+            <div class="check-card">
+              <div class="check-toolbar">
+                <p class="check-intro">{% if result.check_type | default('script') == 'manual' %}Manual verification steps{% else %}Run as root{% endif %}</p>
+                {% if result.check_type | default('script') != 'manual' %}<button class="copy-check" type="button">Copy</button>{% endif %}
+              </div>
+              {% if result.check_type | default('script') == 'manual' %}
+              <div class="manual-check">{{ result.how_to_check | default('Review the evidence and compare it with the expected state.') | e }}</div>
+              {% elif result.check_type | default('script') == 'commands' %}
+              <div class="command-list">
+                {% for command in result.check_commands | default([]) %}
+                <pre class="check-command"><span class="shell-prompt">$</span><code>{{ command | e }}</code></pre>
+                {% endfor %}
+              </div>
+              {% else %}
+              <pre class="check-command"><span class="shell-prompt">$</span><code>bash &lt;&lt;'CIS_CHECK'
+set -o pipefail
+{{ result.how_to_check | trim | e }}
+CIS_CHECK</code></pre>
+              {% endif %}
+            </div>
+          </td>
+          <td class="action-cell">
           {% if result.status in ['FAIL', 'ERROR', 'MANUAL'] %}
             <div class="action-card">
               <div class="action-head">
-                <div class="action-label">{% if result.status == 'MANUAL' %}Review required{% else %}Action required{% endif %}</div>
-                <div class="action-summary remediation-summary">Review the guidance below and apply the approved configuration change.</div>
+                {% if result.status == 'ERROR' %}
+                <div class="action-label error">Audit did not complete</div>
+                <div class="action-summary">Fix the audit execution problem before deciding whether this control passes or fails.</div>
+                <div class="action-target"><strong>Target:</strong> {{ result.expected | e }}</div>
                 <ol class="action-steps">
-                  <li>Confirm the finding and check whether an approved exception applies.</li>
-                  <li>Apply the configuration described in the detailed guidance.</li>
-                  <li>Re-run control <strong>{{ result.id }}</strong> and confirm it reports PASS.</li>
+                  <li>Read the error text in <strong>Evidence</strong>; check missing commands, permissions, and file paths first.</li>
+                  <li>Run the read-only command in <strong>How to check</strong> and correct the audit prerequisite.</li>
+                  <li>Re-run control <strong>{{ result.id }}</strong>. Only remediate the system setting if the result is FAIL.</li>
                 </ol>
+                {% elif result.status == 'MANUAL' %}
+                <div class="action-label manual">Manual review required</div>
+                <div class="action-summary">Collect the requested evidence and compare it with the target state.</div>
+                <div class="action-target"><strong>Target:</strong> {{ result.expected | e }}</div>
+                <ol class="action-steps">
+                  <li>Follow the review steps in <strong>How to check</strong>.</li>
+                  <li>Document the evidence and any approved exception.</li>
+                  <li>If the target is not met, apply the approved remediation and verify again.</li>
+                </ol>
+                {% else %}
+                <div class="action-label">Configuration change required</div>
+                <div class="action-summary remediation-summary">Bring this control to the target state, then verify it again.</div>
+                <div class="action-target"><strong>Target:</strong> {{ result.expected | e }}</div>
+                <ol class="action-steps">
+                  <li>Confirm the evidence and check for an approved exception.</li>
+                  <li>Back up the affected configuration, then apply the change in the guidance below.</li>
+                  <li>Run the check shown for control <strong>{{ result.id }}</strong> and confirm the audit reports PASS.</li>
+                </ol>
+                {% endif %}
               </div>
-              <details>
-                <summary>Open detailed remediation guidance</summary>
-                <pre class="remediation-raw">{{ result.remediation | default('No remediation guidance is available.') | e }}</pre>
+              <details class="remediation-details">
+                <summary>Show remediation steps</summary>
+                <div class="remediation-content">
+                  <pre class="remediation-source" hidden>{{ result.remediation | default('No remediation guidance is available.') | e }}</pre>
+                  <div class="remediation-rendered"></div>
+                </div>
               </details>
             </div>
           {% elif result.status == 'EXCLUDED' %}
@@ -257,8 +347,17 @@ summary { cursor: pointer; padding: 10px 14px; font-weight: 750; font-size: .8re
   const emptyState = document.getElementById('emptyState');
   let actionOnly = false;
 
+  function cleanRemediation(text) {
+    const normalized = text.replace(/\r/g, '').replace(/^\s*(Remediation:|To remediate,?)\s*/i, '');
+    const boundary = normalized.search(/\n\s*(?:References:|CIS Controls:|\d+(?:\.\d+){1,5}\s+Ensure\b)/i);
+    const scoped = boundary >= 0 ? normalized.slice(0, boundary) : normalized;
+    return scoped
+      .replace(/\n\s*Example script:\s*\n[\s\S]*?(?=\n\s*\d+\.\s|\n\s*(?:Note|Default Value|References):|$)/gi, '\n')
+      .trim();
+  }
+
   function firstUsefulSentence(text) {
-    const clean = text
+    const clean = cleanRemediation(text)
       .replace(/\r/g, '')
       .split('\n')
       .map(line => line.trim())
@@ -269,13 +368,118 @@ summary { cursor: pointer; padding: 10px 14px; font-weight: 750; font-size: .8re
       .trim();
     if (!clean) return 'Apply the configuration in the detailed guidance, then re-run the audit.';
     const match = clean.match(/^(.{20,220}?[.!?])(?:\s|$)/);
-    return (match ? match[1] : clean.slice(0, 220)).replace(/^(Remediation:|To remediate,?)/i, '').trim();
+    return (match ? match[1] : clean.slice(0, 220)).trim();
+  }
+
+  function appendText(parent, tag, text, className) {
+    const element = document.createElement(tag);
+    if (className) element.className = className;
+    element.textContent = text;
+    parent.appendChild(element);
+    return element;
+  }
+
+  function renderRemediation(source, target) {
+    const cleaned = cleanRemediation(source);
+    if (!cleaned) {
+      appendText(target, 'p', 'No concise remediation guidance is available. Review the target state and your approved hardening procedure.');
+      return;
+    }
+
+    const lines = cleaned.split('\n').map(line => line.trim());
+    let list = null;
+    let paragraph = [];
+    let activeStepText = null;
+
+    function flushParagraph() {
+      if (!paragraph.length) return;
+      appendText(target, 'p', paragraph.join(' ').replace(/\s+/g, ' ').trim());
+      paragraph = [];
+    }
+
+    lines.forEach((line, index) => {
+      const next = lines[index + 1] || '';
+      const numbered = line.match(/^(\d+)\.\s+(.*)$/);
+      const bullet = line.match(/^(?:[-•]|o)\s+(.*)$/);
+      const command = line.match(/^(?:#|\$)\s+(.+)$/);
+      const config = line.match(/^[A-Za-z0-9_.-]+\s*=\s*\S.*$/);
+
+      if (!line) {
+        flushParagraph();
+        activeStepText = null;
+        list = null;
+      } else if (command) {
+        flushParagraph();
+        activeStepText = null;
+        list = null;
+        let commandText = command[1];
+        if (commandText.endsWith('-') && /^[\w.-]+$/.test(next)) commandText += next;
+        const pre = document.createElement('pre');
+        pre.className = 'remediation-command';
+        appendText(pre, 'span', '$', 'shell-prompt');
+        appendText(pre, 'code', commandText);
+        target.appendChild(pre);
+      } else if (config) {
+        flushParagraph();
+        activeStepText = null;
+        list = null;
+        appendText(target, 'pre', line, 'config-line');
+      } else if (numbered) {
+        flushParagraph();
+        list = null;
+        const step = document.createElement('div');
+        step.className = 'remediation-step';
+        appendText(step, 'span', numbered[1], 'step-number');
+        activeStepText = appendText(step, 'div', numbered[2]);
+        target.appendChild(step);
+      } else if (bullet) {
+        flushParagraph();
+        activeStepText = null;
+        if (!list) {
+          list = document.createElement('ul');
+          target.appendChild(list);
+        }
+        appendText(list, 'li', bullet[1]);
+      } else if (/^(?:Example(?: script)?|Note|Important):?$/i.test(line) || /:$/.test(line) && line.length < 80) {
+        flushParagraph();
+        activeStepText = null;
+        list = null;
+        appendText(target, 'h4', line);
+      } else if (!(index > 0 && lines[index - 1].endsWith('-') && /^[\w.-]+$/.test(line))) {
+        list = null;
+        if (activeStepText) {
+          activeStepText.textContent += ' ' + line;
+        } else {
+          paragraph.push(line);
+        }
+      }
+    });
+    flushParagraph();
   }
 
   document.querySelectorAll('.action-card').forEach(card => {
-    const raw = card.querySelector('.remediation-raw');
+    const raw = card.querySelector('.remediation-source');
+    const rendered = card.querySelector('.remediation-rendered');
     const summary = card.querySelector('.remediation-summary');
-    if (raw && summary) summary.textContent = firstUsefulSentence(raw.textContent);
+    if (raw && rendered) {
+      renderRemediation(raw.textContent, rendered);
+      if (summary) summary.textContent = firstUsefulSentence(raw.textContent);
+    }
+  });
+
+  document.querySelectorAll('.copy-check').forEach(button => {
+    button.addEventListener('click', async () => {
+      const commands = Array.from(button.closest('.check-card').querySelectorAll('.check-command code'))
+        .map(code => code.textContent)
+        .join('\n');
+      try {
+        await navigator.clipboard.writeText(commands);
+        button.textContent = 'Copied';
+        window.setTimeout(() => { button.textContent = 'Copy'; }, 1400);
+      } catch (_) {
+        button.textContent = 'Select text';
+      }
+    });
   });
 
   function applyFilters() {

@@ -1,7 +1,7 @@
 ---
 - name: Load Section 5.1 SSH server controls
   ansible.builtin.include_vars:
-    file: "{{ role_path }}/vars/ssh_server.yml"
+    file: ssh_server.yml
   tags: [section_5, section_5_1]
 
 - name: Section 5.1 - Configure SSH Server
@@ -15,7 +15,7 @@
 
 - name: Load Section 5.2 privilege escalation controls
   ansible.builtin.include_vars:
-    file: "{{ role_path }}/vars/privilege_escalation.yml"
+    file: privilege_escalation.yml
   tags: [section_5, section_5_2]
 
 - name: Section 5.2 - Configure privilege escalation
@@ -29,7 +29,7 @@
 
 - name: Load Section 5.3 PAM controls
   ansible.builtin.include_vars:
-    file: "{{ role_path }}/vars/pam.yml"
+    file: pam.yml
   tags: [section_5, section_5_3]
 
 - name: Section 5.3 - Pluggable Authentication Modules automated controls
@@ -52,7 +52,7 @@
 
 - name: Load Section 5.4 user accounts and environment controls
   ansible.builtin.include_vars:
-    file: "{{ role_path }}/vars/user_accounts.yml"
+    file: user_accounts.yml
   tags: [section_5, section_5_4]
 
 - name: Section 5.4 - User accounts and environment automated controls

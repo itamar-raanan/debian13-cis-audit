@@ -120,7 +120,9 @@ cis_user_account_controls:
     expected: Root PATH contains no empty entries, trailing colon, current-directory entries, non-root-owned directories, or group/world-writable directories
     audit: !unsafe |
       fail=0
-      path_value="$(sudo -Hiu root env | awk -F= '$1 == "PATH" {print substr($0,6)}')"
+      root_shell="$(getent passwd root | awk -F: '{print $7}')"
+      [[ -x "$root_shell" ]] || { echo "Unable to determine a valid root shell: ${root_shell:-unset}"; exit 2; }
+      path_value="$(HOME=/root USER=root LOGNAME=root "$root_shell" -lc 'printf "%s\n" "$PATH"' 2>/dev/null | tail -1)"
       [ -n "$path_value" ] || { echo 'Unable to determine root PATH'; exit 2; }
       case "$path_value" in :*|*::*|*:) echo "Root PATH contains an empty entry: $path_value"; fail=1;; esac
       old_ifs="$IFS"; IFS=:
@@ -141,7 +143,9 @@ cis_user_account_controls:
     profiles: *all_profiles
     expected: Root's effective umask is 027 or more restrictive
     audit: !unsafe |
-      value="$(sudo -Hiu root sh -c 'umask' 2>/dev/null | tail -1)"
+      root_shell="$(getent passwd root | awk -F: '{print $7}')"
+      [[ -x "$root_shell" ]] || { echo "Unable to determine a valid root shell: ${root_shell:-unset}"; exit 2; }
+      value="$(HOME=/root USER=root LOGNAME=root "$root_shell" -lc 'umask' 2>/dev/null | tail -1)"
       [[ "$value" =~ ^0?[0-7]{3}$ ]] || { echo "Unable to determine root umask: ${value:-unset}"; exit 2; }
       numeric=$((8#$value))
       [ $((numeric & 0027)) -eq 0027 ] || { echo "Root umask is too permissive: $value"; exit 1; }

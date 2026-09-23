@@ -169,7 +169,13 @@ cis_section7_controls:
   expected: System satisfies the benchmark audit procedure
   audit: !unsafe |
     bad=$(find / -xdev \( -nouser -o -nogroup \) -printf '%u %g %p\n' 2>/dev/null)
-    [ -z "$bad" ] || { echo "$bad"; exit 1; }
+    if [ -n "$bad" ]; then
+      count=$(printf '%s\n' "$bad" | wc -l)
+      printf '%s\n' "$bad" | head -n 100
+      [ "$count" -le 100 ] || echo "... $((count - 100)) additional unowned or ungrouped objects omitted"
+      echo "Total non-compliant objects: $count"
+      exit 1
+    fi
     echo 'No unowned/ungrouped objects'
 - id: 7.2.1
   title: Ensure accounts in /etc/passwd use shadowed passwords
