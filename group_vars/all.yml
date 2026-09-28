@@ -10,3 +10,38 @@ cis_report_formats:
 # cis_exceptions:
 #   '1.1.1.6': 'OverlayFS is required by the container platform.'
 cis_exceptions: {}
+
+# Optional report-text overrides by control ID. This changes the expected state
+# shown in reports; the related policy variables below control PASS/FAIL logic.
+cis_control_expectations: {}
+
+# Policy inputs for controls that require an organization-specific decision.
+# Add filesystem modules that are installed but not needed by this host.
+cis_unused_filesystem_modules: []
+
+# Regular expressions matched against every active APT repository URI. An empty
+# list disables URI approval matching while Signed-By validation remains active.
+cis_approved_apt_repository_patterns: []
+
+# Every non-loopback listener must use an approved port. Keep these lists as
+# small as possible and adjust them for the host's documented purpose.
+cis_approved_tcp_listening_ports:
+  - 22
+cis_approved_udp_listening_ports: []
+
+# Organization-approved minimum password age, in days.
+cis_password_min_days: 1
+
+# Required effective journald rotation settings. Values must match the output
+# of systemd-analyze cat-config (comparison is case-insensitive).
+cis_journald_rotation_policy:
+  SystemMaxUse: 1G
+  SystemKeepFree: 500M
+  RuntimeMaxUse: 200M
+  RuntimeKeepFree: 50M
+  MaxFileSec: 1month
+
+# package_owned accepts SUID/SGID files supplied by installed Debian packages.
+# Set this to allowlist to require every file to appear in the list below.
+cis_suid_sgid_review_mode: package_owned
+cis_approved_suid_sgid_files: []

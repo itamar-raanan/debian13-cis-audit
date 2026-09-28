@@ -1,2 +1,5 @@
 # Generated CIS audit reports may contain host-specific evidence.
 reports/
+
+# Optional host/company-specific policy file. Keep the example tracked.
+environments/local.yml
