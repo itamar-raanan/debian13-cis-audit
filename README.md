@@ -61,7 +61,7 @@ Level 2 profiles include applicable Level 1 checks.
 - `FAIL`
 - `ERROR`
 - `EXCLUDED`
-- `MANUAL` (used as manual controls are added)
+- `REVIEW` (current state was collected successfully and requires a human decision)
 
 ## Exceptions
 
@@ -75,6 +75,20 @@ cis_exceptions:
 
 An exception is reported as `EXCLUDED`; it is not counted as a pass.
 
+## Evidence-only review controls
+
+The 16 recommendations classified as manual by the benchmark execute read-only
+evidence collectors. A successful collection returns `REVIEW`, not PASS or
+FAIL. The HTML report shows the current configuration, a reproducible Bash
+check, the evidence that should be examined, and control-specific instructions
+under **How to review this evidence**. Evidence-collection failures return
+`ERROR`.
+
+This preserves the benchmark control ID and title without claiming compliance
+when the decision depends on organizational policy. Review decisions, reviewer
+identity, date, and approved exceptions should be recorded through the
+organization's normal governance process.
+
 ## Audit behavior for mount controls
 
 Mount-point checks use an exact `findmnt -M` lookup, so a directory inherited from `/` does not count as a separate filesystem. Mount-option checks inspect the active mount options. Control 1.1.2.1.1 also verifies that `tmp.mount` is not disabled or masked.
@@ -87,7 +101,9 @@ Milestone 3 adds CIS sections **1.2 Package Management** and **1.3 Mandatory Acc
 - 1.2.2.1
 - 1.3.1.1 through 1.3.1.4
 
-The project now contains **63 automated checks** and **2 manual checks**. Manual controls are reported as `MANUAL`; the audit never runs `apt update` or modifies package metadata.
+The Signed-By and pending-update recommendations collect the complete current
+APT state and return `REVIEW`. The audit never runs `apt update` or modifies
+package metadata.
 
 Run the new sections:
 
@@ -123,7 +139,7 @@ ansible-playbook -i inventory.ini audit.yml \
 
 ## Milestone 7 coverage
 
-Section 2.1 is implemented: controls 2.1.1 through 2.1.23. The service checks pass when the relevant package is absent, or when installed only as a dependency and every listed service/socket is disabled and inactive. Control 2.1.23 is reported as MANUAL with listener-review guidance.
+Section 2.1 is implemented: controls 2.1.1 through 2.1.23. The service checks pass when the relevant package is absent, or when installed only as a dependency and every listed service/socket is disabled and inactive. Control 2.1.23 collects every TCP/UDP listener and returns `REVIEW` with instructions for comparing it to the approved-service inventory.
 
 Run Section 2.1 only:
 
@@ -244,7 +260,9 @@ This cumulative release completes **Section 5.4 - User Accounts and Environment*
 - `5.4.2.1` through `5.4.2.8` - root and system accounts and environment
 - `5.4.3.1` through `5.4.3.3` - default user environment
 
-Control `5.4.1.2` remains a manual assessment because the acceptable minimum password age is determined by organizational policy. All other controls are automated and audit-only.
+Control `5.4.1.2` collects PASS_MIN_DAYS and the minimum age of every
+password-bearing local account, then returns `REVIEW` because the acceptable
+minimum is determined by organizational policy. All checks remain audit-only.
 
 Run the subsection:
 
@@ -257,7 +275,10 @@ ansible-playbook -i inventory.ini audit.yml \
 
 ## Coverage update
 
-This cumulative release includes all 333 recommendation IDs listed in CIS Debian Linux 13 Benchmark v1.0.0. Manual recommendations are reported as `MANUAL`; automated recommendations execute audit-only checks.
+This cumulative release includes all 333 recommendation IDs listed in CIS
+Debian Linux 13 Benchmark v1.0.0. Manual recommendations collect their current
+state and return `REVIEW`; automatically scorable recommendations execute their
+audit-only PASS/FAIL checks.
 
 ## Remediation guidance in reports
 
@@ -340,4 +361,9 @@ Profiles are cumulative. Selecting `level2_server` evaluates/remediates controls
 
 ## Enhanced HTML report
 
-The HTML report includes a responsive dashboard, pass-rate indicator, summary cards, status filtering, full-text search, and an action-items view. Failed, error, and manual controls now show a concise **What you need to do** summary followed by three clear steps. The complete CIS remediation text remains available in an expandable **Detailed remediation guidance** panel so the report stays readable without removing technical detail.
+The HTML report includes a responsive dashboard, pass-rate indicator, summary
+cards, status filtering, full-text search, and an action-items view. Failed and
+error controls show corrective steps. Evidence-only controls show the current
+state and a dedicated **How to review this evidence** panel with control-specific
+decision criteria. The complete CIS remediation text remains available in an
+expandable guidance panel.

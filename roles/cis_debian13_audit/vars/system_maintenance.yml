@@ -290,3 +290,26 @@ cis_section7_manual_controls:
   - level1_workstation
   expected: Manual review required by the benchmark
   guidance: Follow the CIS Debian Linux 13 Benchmark v1.0.0 audit procedure and retain site-specific evidence.
+  evidence_description: Every SUID/SGID regular file on local filesystems with mode, owner, group, and owning Debian package when identifiable.
+  audit: !unsafe |
+    command -v findmnt >/dev/null 2>&1 || { echo 'findmnt is unavailable; local filesystems could not be enumerated.'; exit 2; }
+    found=0
+    review_file() {
+      local file="$1" package
+      package="$(dpkg-query -S "$file" 2>/dev/null | head -1 | cut -d: -f1 || true)"
+      stat -Lc 'path=%n mode=%a owner=%U group=%G' "$file"
+      printf 'package=%s\n\n' "${package:-unowned}"
+      found=1
+    }
+    while read -r target fstype; do
+      case "$fstype" in
+        ext2|ext3|ext4|xfs|btrfs|zfs|f2fs|jfs|reiserfs|bcachefs|overlay)
+          while IFS= read -r -d '' file; do
+            review_file "$file"
+          done < <(find "$target" -xdev -type f \( -perm -4000 -o -perm -2000 \) -print0 2>/dev/null)
+          ;;
+      esac
+    done < <(findmnt -rn -o TARGET,FSTYPE 2>/dev/null)
+    [ "$found" -eq 1 ] || echo 'No SUID or SGID regular files were found on local filesystems.'
+  review: >-
+    Compare every file with the organization-approved SUID/SGID inventory or a trusted Debian package baseline. Confirm the owning package is installed and expected, the path and privilege bits match the package or approved local application, and the file is not writable by an untrusted user or group. Investigate all unowned files, locally added binaries, unexpected locations, and package-owned files that the host does not require. Record approval or removal decisions for every exception.

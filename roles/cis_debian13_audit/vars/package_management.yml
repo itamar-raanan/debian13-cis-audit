@@ -6,6 +6,47 @@ cis_package_management_controls:
     profiles: [level1_server, level1_workstation, level2_server, level2_workstation]
     expected: Every active APT repository is approved and uses a repository-specific Signed-By key.
     guidance: Review /etc/apt/sources.list and files under /etc/apt/sources.list.d against site policy.
+    evidence_description: Every active APT source entry, including its source file, URI, suite, components, and Signed-By setting.
+    audit: !unsafe |
+      shopt -s nullglob
+      files=(/etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources)
+      found=0
+      for file in "${files[@]}"; do
+        [ -f "$file" ] || continue
+        case "$file" in
+          *.sources)
+            records="$(awk -v file="$file" 'BEGIN {RS=""; FS="\n"; IGNORECASE=1}
+              { enabled="yes"; types=""; uris=""; suites=""; components=""; signed="unset";
+                for (i=1; i<=NF; i++) {
+                  line=$i
+                  if (line ~ /^[[:space:]]*Enabled:/) {sub(/^[^:]*:[[:space:]]*/, "", line); enabled=tolower(line)}
+                  if (line ~ /^[[:space:]]*Types:/) {sub(/^[^:]*:[[:space:]]*/, "", line); types=line}
+                  if (line ~ /^[[:space:]]*URIs:/) {sub(/^[^:]*:[[:space:]]*/, "", line); uris=line}
+                  if (line ~ /^[[:space:]]*Suites:/) {sub(/^[^:]*:[[:space:]]*/, "", line); suites=line}
+                  if (line ~ /^[[:space:]]*Components:/) {sub(/^[^:]*:[[:space:]]*/, "", line); components=line}
+                  if (line ~ /^[[:space:]]*Signed-By:/) {sub(/^[^:]*:[[:space:]]*/, "", line); signed=(line == "" ? "embedded key block" : line)}
+                }
+                if (enabled != "no" && types ~ /(^|[[:space:]])deb([[:space:]]|$)/) {
+                  printf "file=%s stanza=%d enabled=%s types=%s uri=%s suites=%s components=%s signed_by=%s\n", file, NR, enabled, types, uris, suites, components, signed
+                }
+              }' "$file")"
+            if [ -n "$records" ]; then
+              printf '%s\n' "$records"
+              found=1
+            fi
+            ;;
+          *)
+            while IFS= read -r line; do
+              [[ "$line" =~ ^[[:space:]]*deb(-src)?[[:space:]] ]] || continue
+              printf 'file=%s entry=%s\n' "$file" "$line"
+              found=1
+            done < <(grep -Pv '^[[:space:]]*#' "$file" 2>/dev/null || true)
+            ;;
+        esac
+      done
+      [ "$found" -eq 1 ] || echo 'No active APT repository entries were found.'
+    review: >-
+      Verify that every URI belongs to an organization-approved repository, such as the company Artifactory instance. Confirm the suite and components are appropriate for Debian 13, every entry uses HTTPS where required, and Signed-By names the approved repository-specific key or contains the approved embedded key. Investigate any direct Internet, test, duplicate, disabled-policy, or unsigned source and document the approval decision.
 
   - id: '1.2.1.2'
     title: Ensure weak dependencies are configured
@@ -117,3 +158,27 @@ cis_package_management_controls:
     profiles: [level1_server, level1_workstation, level2_server, level2_workstation]
     expected: No pending approved updates and no pending reboot, according to site policy.
     guidance: Run apt update and apt -s upgrade, then review /var/run/reboot-required. This role does not refresh package metadata.
+    evidence_description: Pending upgrades from current APT metadata, held packages, and reboot-required state.
+    audit: !unsafe |
+      echo '=== Pending upgrades using current package metadata ==='
+      if command -v apt-get >/dev/null 2>&1; then
+        LC_ALL=C apt-get -s -o Debug::NoLocking=1 upgrade 2>&1 | grep -E '^(Inst |[0-9]+ upgraded,)' || echo 'No pending upgrades were reported.'
+      else
+        echo 'apt-get is not installed.'
+      fi
+      echo
+      echo '=== Held packages ==='
+      held="$(apt-mark showhold 2>/dev/null || true)"
+      [ -n "$held" ] && printf '%s\n' "$held" || echo 'No held packages.'
+      echo
+      echo '=== Reboot state ==='
+      if [ -e /var/run/reboot-required ]; then
+        echo 'reboot_required=yes'
+        [ ! -r /var/run/reboot-required.pkgs ] || sed 's/^/package=/' /var/run/reboot-required.pkgs
+      else
+        echo 'reboot_required=no'
+      fi
+      metadata="$(find /var/lib/apt/lists -maxdepth 1 -type f -printf '%T@\n' 2>/dev/null | sort -n | tail -1)"
+      [ -z "$metadata" ] || printf 'newest_apt_metadata_epoch=%s\n' "$metadata"
+    review: >-
+      Confirm the APT metadata is recent enough for your patch-management process. Review every pending and held package against approved maintenance windows and exceptions, paying special attention to security updates. Confirm any reboot-required marker has an approved and scheduled reboot. Record accepted deferrals with an owner and expiration date.

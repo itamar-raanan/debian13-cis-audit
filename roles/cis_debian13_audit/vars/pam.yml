@@ -265,3 +265,16 @@ cis_pam_manual_controls:
     profiles: *all_profiles
     expected: Password complexity meets local policy using minclass or non-positive dcredit, ucredit, lcredit, and ocredit values, with no positive credit overrides
     guidance: Review effective pwquality minclass and character-class credit settings in /etc/security/pwquality.conf, /etc/security/pwquality.conf.d/*.conf, and pam_pwquality arguments. Confirm the selected combination meets local site policy and that no credit value greater than zero weakens the requirement.
+    evidence_description: All active pwquality character-class settings and pam_pwquality arguments, with their source files.
+    audit: !unsafe |
+      shopt -s nullglob
+      files=(/etc/security/pwquality.conf /etc/security/pwquality.conf.d/*.conf)
+      echo '=== pwquality configuration ==='
+      settings="$(grep -PHnsi '^[[:space:]]*(minclass|dcredit|ucredit|lcredit|ocredit)[[:space:]]*=' "${files[@]}" 2>/dev/null || true)"
+      [ -n "$settings" ] && printf '%s\n' "$settings" || echo 'No character-class settings were found in pwquality configuration files.'
+      echo
+      echo '=== Active PAM pwquality entries ==='
+      pam_lines="$(grep -PHnsi '^[[:space:]]*password[[:space:]]+[^#]+[[:space:]]+pam_pwquality\.so\b' /etc/pam.d/common-password /etc/pam.d/* 2>/dev/null | sort -u || true)"
+      [ -n "$pam_lines" ] && printf '%s\n' "$pam_lines" || echo 'No active pam_pwquality.so password entries were found.'
+    review: >-
+      Resolve the effective value of minclass, dcredit, ucredit, lcredit, and ocredit using configuration-file precedence and any PAM arguments, which can override file settings. Compare the effective result with the approved password policy. Positive credit values can weaken a requirement; confirm they are not used unless specifically approved. Document whether minclass or explicit negative credit values enforce the required character classes.

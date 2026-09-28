@@ -477,3 +477,11 @@ cis_server_service_controls:
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: Every listening service, port, protocol, and interface is approved by local site policy.
     guidance: Run ss -plntu and review every listener against the approved-service inventory.
+    evidence_description: Every listening TCP/UDP socket with its local address, port, process, and PID when available.
+    audit: !unsafe |
+      command -v ss >/dev/null 2>&1 || { echo 'ss is not installed; listener state could not be collected.'; exit 2; }
+      echo 'Protocol State  Local address and port                 Process'
+      listeners="$(ss -H -lntup 2>&1)"
+      [ -n "$listeners" ] && printf '%s\n' "$listeners" || echo 'No listening TCP or UDP sockets were found.'
+    review: >-
+      Compare every non-loopback listener with the approved service inventory for this host. Verify the protocol, port, bound address/interface, executable, and business owner. Wildcard listeners such as 0.0.0.0 or [::] require particular attention because they accept traffic on every interface. Confirm each listener is protected by the expected firewall policy and investigate unknown processes or ports.

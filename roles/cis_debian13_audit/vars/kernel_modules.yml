@@ -97,3 +97,24 @@ cis_kernel_module_manual_controls:
   - level1_workstation
   expected: Manual review completed
   guidance: Inventory filesystem modules and confirm unused modules are disabled.
+  evidence_description: Supported filesystems, loaded filesystem modules, and active module deny-list/install rules.
+  audit: !unsafe |
+    echo '=== Kernel and supported filesystems ==='
+    printf 'kernel=%s\n' "$(uname -r)"
+    cat /proc/filesystems 2>/dev/null || echo '/proc/filesystems is unavailable'
+    echo
+    echo '=== Loaded filesystem modules ==='
+    found=0
+    while read -r module _; do
+      path="$(modinfo -F filename "$module" 2>/dev/null || true)"
+      case "$path" in
+        */kernel/fs/*) printf 'module=%s path=%s\n' "$module" "$path"; found=1 ;;
+      esac
+    done < <(lsmod 2>/dev/null | tail -n +2)
+    [ "$found" -eq 1 ] || echo 'No loadable filesystem modules are currently loaded.'
+    echo
+    echo '=== Filesystem module restrictions ==='
+    restrictions="$(modprobe --showconfig 2>/dev/null | grep -PE '^[[:space:]]*(blacklist|install)[[:space:]]+' | grep -E '(/bin/(true|false)|blacklist)' || true)"
+    [ -n "$restrictions" ] && printf '%s\n' "$restrictions" || echo 'No module blacklist/install restrictions were found.'
+  review: >-
+    Review the supported and loaded filesystem modules against the filesystems required by this host's storage, backup, container, and application workloads. For every filesystem module that is not required, confirm it is not loaded and has both a blacklist rule and an install rule that invokes /bin/false or /bin/true. Document why every remaining loaded filesystem module is required.

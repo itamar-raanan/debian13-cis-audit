@@ -6,6 +6,22 @@ cis_network_device_controls:
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: IPv6 status is identified and documented in accordance with local site policy
     guidance: Review /sys/module/ipv6/parameters/disable and net.ipv6.conf.*.disable_ipv6; document whether IPv6 is enabled or disabled.
+    evidence_description: Kernel-level IPv6 state and the effective disable_ipv6 value for every interface plus all/default settings.
+    audit: !unsafe |
+      printf 'ipv6_module_disable=%s\n' "$(cat /sys/module/ipv6/parameters/disable 2>/dev/null || echo unavailable)"
+      if [ -d /proc/sys/net/ipv6/conf ]; then
+        for setting in /proc/sys/net/ipv6/conf/*/disable_ipv6; do
+          [ -r "$setting" ] || continue
+          interface="$(basename "$(dirname "$setting")")"
+          printf 'interface=%s disable_ipv6=%s\n' "$interface" "$(cat "$setting")"
+        done
+      else
+        echo 'IPv6 sysctl interface settings are unavailable.'
+      fi
+      echo 'IPv6 addresses:'
+      ip -6 address show 2>/dev/null || echo 'The ip command is unavailable or returned no IPv6 state.'
+    review: >-
+      Determine whether organizational policy requires IPv6 to be enabled or disabled on this host. If disabled, confirm the module and all relevant interface values consistently disable it and that no non-loopback IPv6 addresses are assigned. If enabled, confirm IPv6 is intentionally configured, routed, monitored, and protected by equivalent firewall rules. Document the approved state and any interface-specific exception.
 
   - id: '3.1.2'
     title: Ensure wireless interfaces are not available

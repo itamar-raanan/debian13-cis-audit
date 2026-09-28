@@ -19,7 +19,7 @@
       total: "{{ cis_results | length }}"
       pass: "{{ cis_results | selectattr('status', 'equalto', 'PASS') | list | length }}"
       fail: "{{ cis_results | selectattr('status', 'equalto', 'FAIL') | list | length }}"
-      manual: "{{ cis_results | selectattr('status', 'equalto', 'MANUAL') | list | length }}"
+      review: "{{ cis_results | selectattr('status', 'equalto', 'REVIEW') | list | length }}"
       excluded: "{{ cis_results | selectattr('status', 'equalto', 'EXCLUDED') | list | length }}"
       error: "{{ cis_results | selectattr('status', 'equalto', 'ERROR') | list | length }}"
   changed_when: false
@@ -56,5 +56,5 @@
     msg: >-
       CIS audit for {{ inventory_hostname }}: total={{ cis_summary.total }},
       pass={{ cis_summary.pass }}, fail={{ cis_summary.fail }},
-      manual={{ cis_summary.manual }}, excluded={{ cis_summary.excluded }},
+      review={{ cis_summary.review }}, excluded={{ cis_summary.excluded }},
       error={{ cis_summary.error }}
