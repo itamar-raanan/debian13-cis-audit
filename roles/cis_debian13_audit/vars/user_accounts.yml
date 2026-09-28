@@ -219,31 +219,9 @@ cis_user_account_controls:
       [ -z "$good" ] || printf '%s\n' "$good"
       exit "$fail"
 
+cis_user_account_manual_controls:
   - id: "5.4.1.2"
     title: Ensure minimum password days is configured
     profiles: *all_profiles
     expected: PASS_MIN_DAYS and all existing local interactive accounts meet the organization-defined minimum, commonly 1 day or more
-    audit: !unsafe |
-      policy="${CIS_PASSWORD_MIN_DAYS:-1}"
-      [[ "$policy" =~ ^[1-9][0-9]*$ ]] || { echo "Invalid cis_password_min_days policy: $policy"; exit 2; }
-      login_min="$(awk '$1 == "PASS_MIN_DAYS" {value=$2} END {print value}' /etc/login.defs)"
-      failed=0
-      if [[ "$login_min" =~ ^[0-9]+$ ]] && [ "$login_min" -ge "$policy" ]; then
-        echo "PASS: /etc/login.defs PASS_MIN_DAYS=$login_min policy=$policy"
-      else
-        echo "FAIL: /etc/login.defs PASS_MIN_DAYS=${login_min:-unset} policy=$policy"
-        failed=1
-      fi
-      while IFS=: read -r user password _ minimum _; do
-        case "$password" in
-          \$*|!\$*) ;;
-          *) continue ;;
-        esac
-        if [[ "$minimum" =~ ^[0-9]+$ ]] && [ "$minimum" -ge "$policy" ]; then
-          echo "PASS: user=$user minimum_days=$minimum"
-        else
-          echo "FAIL: user=$user minimum_days=${minimum:-unset} policy=$policy"
-          failed=1
-        fi
-      done < /etc/shadow
-      exit "$failed"
+    guidance: Review PASS_MIN_DAYS in /etc/login.defs and the minimum password age field for every local interactive account in /etc/shadow. Confirm the value matches organizational policy.

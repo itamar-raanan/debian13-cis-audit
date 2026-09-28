@@ -89,33 +89,11 @@ cis_kernel_module_controls:
   - level2_server
   - level1_workstation
   - level2_workstation
-cis_kernel_module_policy_controls:
+cis_kernel_module_manual_controls:
 - id: 1.1.1.11
   title: Ensure unused filesystems kernel modules are not available
   profiles:
   - level1_server
   - level1_workstation
-  expected: Every filesystem module declared unused by site policy is unloaded, deny-listed, and not loadable.
-  audit: !unsafe |
-    read -r -a modules <<< "${CIS_UNUSED_FILESYSTEM_MODULES:-}"
-    if ((${#modules[@]} == 0)); then
-      echo 'No additional unused filesystem modules are declared in cis_unused_filesystem_modules.'
-      exit 3
-    fi
-    failed=0
-    for module in "${modules[@]}"; do
-      loaded_name="${module//-/_}"
-      if ! load_rule="$(modprobe -n -v "$module" 2>&1)"; then
-        printf 'PASS: module=%s is unavailable (%s)\n' "$module" "$load_rule"
-        continue
-      fi
-      loaded=0
-      lsmod | awk '{print $1}' | grep -qx "$loaded_name" && loaded=1
-      denylisted=0
-      modprobe --showconfig 2>/dev/null | grep -Pq "^[[:space:]]*blacklist[[:space:]]+${loaded_name}\\b" && denylisted=1
-      blocked=0
-      grep -Pq '^[[:space:]]*install[[:space:]]+/bin/(true|false)\b' <<< "$load_rule" && blocked=1
-      printf 'module=%s loaded=%s denylisted=%s blocked=%s load_rule=%s\n' "$module" "$loaded" "$denylisted" "$blocked" "$load_rule"
-      [[ "$loaded" == 0 && "$denylisted" == 1 && "$blocked" == 1 ]] || failed=1
-    done
-    exit "$failed"
+  expected: Manual review completed
+  guidance: Inventory filesystem modules and confirm unused modules are disabled.

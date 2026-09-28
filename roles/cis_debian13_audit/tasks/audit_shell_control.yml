@@ -5,19 +5,6 @@
     {{ cis_control.audit }}
   args:
     executable: /bin/bash
-  environment:
-    CIS_UNUSED_FILESYSTEM_MODULES: "{{ cis_unused_filesystem_modules | default([]) | join(' ') }}"
-    CIS_APPROVED_APT_REPOSITORY_PATTERNS: "{{ cis_approved_apt_repository_patterns | default([]) | join('\n') }}"
-    CIS_APPROVED_TCP_LISTENING_PORTS: "{{ cis_approved_tcp_listening_ports | default([]) | join(' ') }}"
-    CIS_APPROVED_UDP_LISTENING_PORTS: "{{ cis_approved_udp_listening_ports | default([]) | join(' ') }}"
-    CIS_PASSWORD_MIN_DAYS: "{{ cis_password_min_days | default(1) | string }}"
-    CIS_JOURNALD_SYSTEM_MAX_USE: "{{ cis_journald_rotation_policy.SystemMaxUse | default('') }}"
-    CIS_JOURNALD_SYSTEM_KEEP_FREE: "{{ cis_journald_rotation_policy.SystemKeepFree | default('') }}"
-    CIS_JOURNALD_RUNTIME_MAX_USE: "{{ cis_journald_rotation_policy.RuntimeMaxUse | default('') }}"
-    CIS_JOURNALD_RUNTIME_KEEP_FREE: "{{ cis_journald_rotation_policy.RuntimeKeepFree | default('') }}"
-    CIS_JOURNALD_MAX_FILE_SEC: "{{ cis_journald_rotation_policy.MaxFileSec | default('') }}"
-    CIS_SUID_SGID_REVIEW_MODE: "{{ cis_suid_sgid_review_mode | default('package_owned') }}"
-    CIS_APPROVED_SUID_SGID_FILES: "{{ cis_approved_suid_sgid_files | default([]) | join('\n') }}"
   register: cis_shell_audit
   changed_when: false
   failed_when: false
@@ -38,10 +25,10 @@
            'PASS' if cis_shell_audit.rc == 0 else
            'FAIL' if cis_shell_audit.rc == 1 else
            'NOT_APPLICABLE' if cis_shell_audit.rc == 3 else 'ERROR'),
-        'expected': cis_control_expectations.get(cis_control.id, cis_control.expected),
+        'expected': cis_control.expected,
         'expected_evidence':
-          (('The command exits successfully and confirms: ' ~ cis_control_expectations.get(cis_control.id, cis_control.expected))
-           if cis_control_expectations.get(cis_control.id, cis_control.expected) != 'System satisfies the benchmark audit procedure' else
+          (('The command exits successfully and confirms: ' ~ cis_control.expected)
+           if cis_control.expected != 'System satisfies the benchmark audit procedure' else
            'The command exits successfully and reports no non-compliant findings for this control.'),
         'check_type': 'script',
         'check_commands': [],
