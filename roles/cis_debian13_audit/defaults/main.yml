@@ -20,23 +20,6 @@ cis_report_dir: "{{ playbook_dir }}/reports"
 cis_report_formats: [json, csv, html]
 cis_exceptions: {}
 cis_results: []
-cis_control_expectations: {}
-
-# Site-policy inputs used by controls that the CIS benchmark classifies as
-# manual.  The role turns them into repeatable machine checks.
-cis_unused_filesystem_modules: []
-cis_approved_apt_repository_patterns: []
-cis_approved_tcp_listening_ports: []
-cis_approved_udp_listening_ports: []
-cis_password_min_days: 1
-cis_journald_rotation_policy:
-  SystemMaxUse: 1G
-  SystemKeepFree: 500M
-  RuntimeMaxUse: 200M
-  RuntimeKeepFree: 50M
-  MaxFileSec: 1month
-cis_suid_sgid_review_mode: package_owned
-cis_approved_suid_sgid_files: []
 
 cis_valid_profiles:
   - level1_server

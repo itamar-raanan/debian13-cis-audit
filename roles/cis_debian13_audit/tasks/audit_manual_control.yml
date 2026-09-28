@@ -1,29 +1,56 @@
 ---
-- name: "{{ cis_control.id }} | Record manual control"
+- name: "{{ cis_control.id }} | Collect current state for review"
+  ansible.builtin.shell: |
+    set -o pipefail
+    {{ cis_control.audit }}
+  args:
+    executable: /bin/bash
+  register: cis_review_evidence
+  changed_when: false
+  failed_when: false
+  when: cis_control.id not in cis_exceptions
+  tags:
+    - "cis_{{ cis_control.id | replace('.', '_') }}"
+
+- name: "{{ cis_control.id }} | Record review evidence"
   ansible.builtin.set_fact:
     cis_results: >-
       {{ cis_results + [{
         'id': cis_control.id,
         'title': cis_control.title,
         'section': cis_control.id.rsplit('.', 1)[0],
-        'assessment': 'Manual',
+        'assessment': 'Evidence only',
         'profiles': cis_control.profiles,
-        'status': ('EXCLUDED' if cis_control.id in cis_exceptions else 'MANUAL'),
-        'expected': cis_control_expectations.get(cis_control.id, cis_control.expected),
-        'expected_evidence': cis_control_expectations.get(cis_control.id, cis_control.expected),
-        'check_type': 'manual',
+        'status':
+          ('EXCLUDED' if cis_control.id in cis_exceptions else
+           'REVIEW' if (cis_review_evidence.rc | default(2)) == 0 else 'ERROR'),
+        'expected': 'Current configuration is collected for human review; this control is not automatically scored.',
+        'expected_evidence': cis_control.evidence_description,
+        'check_type': 'script',
         'check_commands': [],
-        'how_to_check': cis_control.guidance,
+        'how_to_check': cis_control.audit,
+        'review_guidance': cis_control.review,
         'remediation': cis_remediations.get(cis_control.id,
-          'Review the control evidence and expected state, apply the approved configuration change, and re-run the audit.'),
+          'If the collected state does not meet organizational policy, document the finding and apply an approved change.'),
         'actual':
           ('Documented exception: ' ~ cis_exceptions[cis_control.id]
-           if cis_control.id in cis_exceptions else cis_control.guidance),
+           if cis_control.id in cis_exceptions else
+           ((cis_review_evidence.stdout | default('') | trim) ~
+            ('\n' if (cis_review_evidence.stdout | default('') | trim | length) > 0 and
+                      (cis_review_evidence.stderr | default('') | trim | length) > 0 else '') ~
+            (cis_review_evidence.stderr | default('') | trim))),
         'evidence_text':
           ('Documented exception: ' ~ cis_exceptions[cis_control.id]
            if cis_control.id in cis_exceptions else
-           'Manual evidence has not been collected by the automated audit.'),
-        'evidence': {'guidance': cis_control.guidance}
+           ((cis_review_evidence.stdout | default('') | trim) ~
+            ('\n' if (cis_review_evidence.stdout | default('') | trim | length) > 0 and
+                      (cis_review_evidence.stderr | default('') | trim | length) > 0 else '') ~
+            (cis_review_evidence.stderr | default('') | trim))),
+        'evidence':
+          ([('Documented exception: ' ~ cis_exceptions[cis_control.id])]
+           if cis_control.id in cis_exceptions else
+           ((cis_review_evidence.stdout_lines | default([])) +
+            (cis_review_evidence.stderr_lines | default([]))))
       }] }}
   changed_when: false
   tags:

@@ -702,167 +702,171 @@ cis_section6_controls:
     fail=0
     for f in auditctl aureport ausearch autrace auditd augenrules; do grep -Pq "/(sbin|usr/sbin)/$f[[:space:]].*(sha256|sha512)" <<<"$cfg" || { echo "Missing AIDE hash rule for $f"; fail=1; }; done
     exit $fail
+cis_section6_manual_controls:
 - id: 6.1.1.1.2
   title: Ensure journald log file access is configured
   profiles:
   - level1_server
   - level1_workstation
-  expected: Existing journal files are owned by root, group-owned by root or systemd-journal, and mode 0640 or more restrictive.
+  expected: Manual review required by the benchmark
+  guidance: Follow the CIS Debian Linux 13 Benchmark v1.0.0 audit procedure and retain site-specific evidence.
+  evidence_description: Existing journal files and directories with their modes, owners, and groups.
   audit: !unsafe |
-    failed=0
     found=0
     for directory in /var/log/journal /run/log/journal; do
-      [ -d "$directory" ] || continue
+      [ -e "$directory" ] || continue
+      stat -Lc 'path=%n type=directory mode=%a owner=%U group=%G' "$directory"
       while IFS= read -r -d '' file; do
+        stat -Lc 'path=%n type=file mode=%a owner=%U group=%G' "$file"
         found=1
-        read -r mode uid group < <(stat -Lc '%a %u %G' "$file")
-        if [ "$uid" -eq 0 ] && [[ "$group" =~ ^(root|systemd-journal)$ ]] && [ $((8#$mode & 8#0137)) -eq 0 ]; then
-          printf 'PASS: %s mode=%s owner=root group=%s\n' "$file" "$mode" "$group"
-        else
-          printf 'FAIL: %s mode=%s uid=%s group=%s\n' "$file" "$mode" "$uid" "$group"
-          failed=1
-        fi
       done < <(find "$directory" -xdev -type f -name '*.journal*' -print0 2>/dev/null)
     done
-    [ "$found" -eq 1 ] || { echo 'No journal files exist yet; file access cannot be evaluated.'; exit 3; }
-    exit "$failed"
+    [ "$found" -eq 1 ] || echo 'No journal files currently exist under /var/log/journal or /run/log/journal.'
+  review: >-
+    Review every journal file and directory for organization-approved access. Journal files should normally be owned by root, group-owned by root or systemd-journal, and mode 0640 or more restrictive. Confirm directory permissions still allow journald to operate without granting unnecessary access. Investigate any other owner, group, world permission, or unexpectedly permissive mode.
 - id: 6.1.1.1.3
   title: Ensure journald log file rotation is configured
   profiles:
   - level1_server
   - level1_workstation
-  expected: Effective journald rotation settings match cis_journald_rotation_policy.
+  expected: Manual review required by the benchmark
+  guidance: Follow the CIS Debian Linux 13 Benchmark v1.0.0 audit procedure and retain site-specific evidence.
+  evidence_description: Effective journald size, free-space, file-size, retention, and rotation settings with configuration precedence resolved.
   audit: !unsafe |
-    command -v systemd-analyze >/dev/null 2>&1 || { echo 'systemd-analyze is unavailable'; exit 2; }
-    config="$(systemd-analyze cat-config systemd/journald.conf 2>&1)" || { printf '%s\n' "$config"; exit 2; }
-    failed=0
-    check_setting() {
-      local key="$1" expected="$2" actual
-      actual="$(awk -F= -v key="$key" '$0 !~ /^[[:space:]]*[#;]/ && $1 ~ "^[[:space:]]*" key "[[:space:]]*$" {value=$2} END {gsub(/^[[:space:]]+|[[:space:]]+$/, "", value); print value}' <<< "$config")"
-      if [ -n "$expected" ] && [ "${actual,,}" = "${expected,,}" ]; then
-        printf 'PASS: %s=%s\n' "$key" "$actual"
-      else
-        printf 'FAIL: %s=%s expected=%s\n' "$key" "${actual:-unset}" "${expected:-unset}"
-        failed=1
-      fi
-    }
-    check_setting SystemMaxUse "${CIS_JOURNALD_SYSTEM_MAX_USE:-}"
-    check_setting SystemKeepFree "${CIS_JOURNALD_SYSTEM_KEEP_FREE:-}"
-    check_setting RuntimeMaxUse "${CIS_JOURNALD_RUNTIME_MAX_USE:-}"
-    check_setting RuntimeKeepFree "${CIS_JOURNALD_RUNTIME_KEEP_FREE:-}"
-    check_setting MaxFileSec "${CIS_JOURNALD_MAX_FILE_SEC:-}"
-    exit "$failed"
+    if command -v systemd-analyze >/dev/null 2>&1; then
+      config="$(systemd-analyze cat-config systemd/journald.conf 2>&1 || true)"
+    else
+      config="$(cat /etc/systemd/journald.conf /etc/systemd/journald.conf.d/*.conf 2>/dev/null || true)"
+    fi
+    settings="$(grep -P '^[[:space:]]*(SystemMaxUse|SystemKeepFree|SystemMaxFileSize|SystemMaxFiles|RuntimeMaxUse|RuntimeKeepFree|RuntimeMaxFileSize|RuntimeMaxFiles|MaxFileSec|MaxRetentionSec)[[:space:]]*=' <<< "$config" || true)"
+    [ -n "$settings" ] && printf '%s\n' "$settings" || echo 'No explicit journald rotation or retention settings were found; systemd defaults are in effect.'
+  review: >-
+    Compare the effective limits with the approved logging-retention and disk-capacity policy. Confirm SystemMaxUse and RuntimeMaxUse prevent log exhaustion, KeepFree values preserve required free space, and MaxFileSec or MaxRetentionSec retains logs for the required period. Consider log volume, separate /var capacity, remote forwarding, and incident-response requirements. Document acceptance of systemd defaults if no explicit values are configured.
 - id: 6.1.1.2.2
   title: Ensure systemd-journal-upload authentication is configured
   profiles:
   - level1_server
   - level1_workstation
-  expected: journal-upload has a URL and readable server key, server certificate, and trusted CA certificate files.
+  expected: Manual review required by the benchmark
+  guidance: Follow the CIS Debian Linux 13 Benchmark v1.0.0 audit procedure and retain site-specific evidence.
+  evidence_description: Effective journal-upload URL and authentication file paths, plus metadata for referenced key and certificate files.
   audit: !unsafe |
-    command -v systemd-analyze >/dev/null 2>&1 || { echo 'systemd-analyze is unavailable'; exit 2; }
-    config="$(systemd-analyze cat-config systemd/journal-upload.conf 2>&1)" || { printf '%s\n' "$config"; exit 1; }
-    failed=0
-    effective_value() {
-      local key="$1"
-      awk -F= -v key="$key" '$0 !~ /^[[:space:]]*[#;]/ && $1 ~ "^[[:space:]]*" key "[[:space:]]*$" {value=$2} END {gsub(/^[[:space:]]+|[[:space:]]+$/, "", value); print value}' <<< "$config"
-    }
-    url="$(effective_value URL)"
-    [ -n "$url" ] && echo "PASS: URL=$url" || { echo 'FAIL: URL is unset'; failed=1; }
-    for key in ServerKeyFile ServerCertificateFile TrustedCertificateFile; do
-      value="$(effective_value "$key")"
-      if [ -n "$value" ] && [ -f "$value" ] && [ -r "$value" ]; then
-        printf 'PASS: %s=%s exists and is readable\n' "$key" "$value"
+    if command -v systemd-analyze >/dev/null 2>&1; then
+      config="$(systemd-analyze cat-config systemd/journal-upload.conf 2>&1 || true)"
+    else
+      config="$(cat /etc/systemd/journal-upload.conf /etc/systemd/journal-upload.conf.d/*.conf 2>/dev/null || true)"
+    fi
+    values="$(grep -P '^[[:space:]]*(URL|ServerKeyFile|ServerCertificateFile|TrustedCertificateFile)[[:space:]]*=' <<< "$config" || true)"
+    [ -n "$values" ] && printf '%s\n' "$values" || echo 'No journal-upload authentication settings were found.'
+    while IFS= read -r path; do
+      [ -n "$path" ] || continue
+      if [ -e "$path" ]; then
+        stat -Lc 'referenced_file=%n mode=%a owner=%U group=%G' "$path"
       else
-        printf 'FAIL: %s=%s is missing or unreadable\n' "$key" "${value:-unset}"
-        failed=1
+        printf 'referenced_file=%s state=missing\n' "$path"
       fi
-    done
-    exit "$failed"
+    done < <(grep -Po '^[[:space:]]*(ServerKeyFile|ServerCertificateFile|TrustedCertificateFile)[[:space:]]*=\K.*' <<< "$config" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' || true)
+  review: >-
+    Confirm URL names the approved remote journal service and uses the required secure transport. Verify the private key, client certificate, and trusted CA paths are all configured, exist, and have restrictive ownership and permissions. Confirm certificates belong to the approved PKI, are not expired, and match the destination. Never include private-key contents in the review record.
 - id: 6.1.2.5
   title: Ensure rsyslog logging is configured
   profiles:
   - level1_server
   - level1_workstation
-  expected: rsyslog configuration is syntactically valid and contains at least one active logging destination.
+  expected: Manual review required by the benchmark
+  guidance: Follow the CIS Debian Linux 13 Benchmark v1.0.0 audit procedure and retain site-specific evidence.
+  evidence_description: Active rsyslog selectors, actions, file destinations, and configuration-validation output.
   audit: !unsafe |
-    command -v rsyslogd >/dev/null 2>&1 || { echo 'rsyslogd is unavailable'; exit 1; }
-    validation="$(rsyslogd -N1 2>&1)"
-    rc=$?
-    printf '%s\n' "$validation"
-    [ "$rc" -eq 0 ] || exit 1
-    routes="$(grep -RPhs '^[[:space:]]*[^#[:space:]].*(/var/log/|action[[:space:]]*\(|@@?[^[:space:]]+)' /etc/rsyslog.conf /etc/rsyslog.d 2>/dev/null || true)"
-    [ -n "$routes" ] || { echo 'FAIL: no active rsyslog logging destination was found'; exit 1; }
-    printf 'Active logging destinations:\n%s\n' "$routes"
+    echo '=== rsyslog configuration validation ==='
+    if command -v rsyslogd >/dev/null 2>&1; then
+      rsyslogd -N1 2>&1 || true
+    else
+      echo 'rsyslogd is not installed.'
+    fi
+    echo
+    echo '=== Active selectors and actions ==='
+    lines="$(grep -RPHn '^[[:space:]]*[^#[:space:]].*' /etc/rsyslog.conf /etc/rsyslog.d 2>/dev/null | grep -E '(/var/log/|action[[:space:]]*\(|@@?[^[:space:]]+|^[^:]+:[0-9]+:[[:space:]]*[^#$])' || true)"
+    [ -n "$lines" ] && printf '%s\n' "$lines" || echo 'No active rsyslog selectors or destinations were found.'
+  review: >-
+    Confirm the configuration validation reports no syntax errors. Compare active selectors and actions with the organization logging standard: required authentication, authorization, daemon, kernel, mail, emergency, and security events should reach approved local or remote destinations. Check for dropped facilities, overly broad stop/discard rules, duplicate routing, and destinations with inappropriate access.
 - id: 6.1.2.6
   title: Ensure rsyslog is configured to send logs to a remote log host
   profiles:
   - level1_server
   - level1_workstation
-  expected: An active rsyslog forwarding action sends logs to a remote host.
+  expected: Manual review required by the benchmark
+  guidance: Follow the CIS Debian Linux 13 Benchmark v1.0.0 audit procedure and retain site-specific evidence.
+  evidence_description: Every active rsyslog remote-forwarding rule, including target, port, protocol, queue, and TLS settings present in the rule.
   audit: !unsafe |
-    forwarding="$(grep -RPhsi '^[[:space:]]*[^#].*(@@?[^[:space:]]+|action[[:space:]]*\([^)]*type[[:space:]]*=[[:space:]]*"?omfwd"?|target[[:space:]]*=)' /etc/rsyslog.conf /etc/rsyslog.d 2>/dev/null || true)"
-    [ -n "$forwarding" ] || { echo 'FAIL: no active remote rsyslog forwarding action was found'; exit 1; }
-    printf '%s\n' "$forwarding"
+    forwarding="$(grep -RPHni '^[[:space:]]*[^#].*(@@?[^[:space:]]+|type[[:space:]]*=[[:space:]]*"?omfwd"?|target[[:space:]]*=)' /etc/rsyslog.conf /etc/rsyslog.d 2>/dev/null || true)"
+    [ -n "$forwarding" ] && printf '%s\n' "$forwarding" || echo 'No active remote rsyslog forwarding rules were found.'
+  review: >-
+    Verify every remote target is an approved central log host and that its port, TCP/UDP transport, TLS mode, and queue behavior match policy. Prefer reliable TCP with authenticated TLS where required. Confirm forwarding covers the required facilities, survives temporary network outages, and does not send sensitive logs to an unauthorized destination.
 - id: 6.1.2.8
   title: Ensure logrotate is configured
   profiles:
   - level1_server
   - level1_workstation
-  expected: logrotate configuration loads successfully and includes active rotation policies.
+  expected: Manual review required by the benchmark
+  guidance: Follow the CIS Debian Linux 13 Benchmark v1.0.0 audit procedure and retain site-specific evidence.
+  evidence_description: Loaded logrotate policies and debug output showing rotation frequency, retention, compression, ownership, and file handling.
   audit: !unsafe |
-    command -v logrotate >/dev/null 2>&1 || { echo 'logrotate is unavailable'; exit 1; }
-    [ -r /etc/logrotate.conf ] || { echo '/etc/logrotate.conf is missing or unreadable'; exit 1; }
-    output="$(logrotate --debug /etc/logrotate.conf 2>&1)"
-    rc=$?
-    printf '%s\n' "$output"
-    [ "$rc" -eq 0 ] || exit 1
-    grep -q 'rotating pattern' <<< "$output" || { echo 'FAIL: no active rotation policies were loaded'; exit 1; }
+    if command -v logrotate >/dev/null 2>&1 && [ -r /etc/logrotate.conf ]; then
+      logrotate --debug /etc/logrotate.conf 2>&1 || true
+    elif [ -r /etc/logrotate.conf ]; then
+      echo 'logrotate is not installed; showing configuration files instead.'
+      cat /etc/logrotate.conf /etc/logrotate.d/* 2>/dev/null || true
+    else
+      echo '/etc/logrotate.conf is missing or unreadable.'
+    fi
+  review: >-
+    Review each important log path for an explicit or inherited rotation policy. Confirm frequency, rotate count or age, compression, copytruncate/postrotate behavior, file creation mode, owner, and group meet retention and operational requirements. Ensure security and audit logs cannot grow without limit and are not deleted before centralized retention obligations are met.
 - id: 6.1.2.11
   title: Ensure rsyslog CA certificates are configured
   profiles:
   - level2_server
   - level2_workstation
-  expected: rsyslog TLS forwarding references an existing, readable CA certificate file.
+  expected: Manual review required by the benchmark
+  guidance: Follow the CIS Debian Linux 13 Benchmark v1.0.0 audit procedure and retain site-specific evidence.
+  evidence_description: Configured rsyslog CA certificate paths with file metadata and non-secret certificate subject, issuer, and validity dates.
   audit: !unsafe |
-    config="$(grep -RPhs '^[[:space:]]*[^#]' /etc/rsyslog.conf /etc/rsyslog.d 2>/dev/null || true)"
-    ca_files="$(grep -Poi '(DefaultNetstreamDriverCAFile|StreamDriver\.CAFile)[[:space:]]*=?[[:space:]]*"?\K[^"[:space:]]+' <<< "$config" | sort -u || true)"
-    [ -n "$ca_files" ] || { echo 'FAIL: no rsyslog CA certificate setting was found'; exit 1; }
-    failed=0
+    config="$(grep -RPHn '^[[:space:]]*[^#]' /etc/rsyslog.conf /etc/rsyslog.d 2>/dev/null || true)"
+    ca_lines="$(grep -Pi '(DefaultNetstreamDriverCAFile|StreamDriver\.CAFile)' <<< "$config" || true)"
+    [ -n "$ca_lines" ] && printf '%s\n' "$ca_lines" || echo 'No rsyslog CA certificate setting was found.'
     while IFS= read -r file; do
-      if [ -f "$file" ] && [ -r "$file" ]; then
-        echo "PASS: CA certificate exists and is readable: $file"
+      [ -n "$file" ] || continue
+      if [ -f "$file" ]; then
+        stat -Lc 'ca_file=%n mode=%a owner=%U group=%G' "$file"
+        command -v openssl >/dev/null 2>&1 && openssl x509 -in "$file" -noout -subject -issuer -dates 2>/dev/null || true
       else
-        echo "FAIL: CA certificate is missing or unreadable: $file"
-        failed=1
+        printf 'ca_file=%s state=missing\n' "$file"
       fi
-    done <<< "$ca_files"
-    exit "$failed"
+    done < <(grep -Poi '(DefaultNetstreamDriverCAFile|StreamDriver\.CAFile)[[:space:]]*=?[[:space:]]*"?\K[^"[:space:]]+' <<< "$config" | sort -u || true)
+  review: >-
+    Confirm every configured CA file is the organization-approved trust anchor for the remote logging service. Review owner, group, and mode for unnecessary write access, then verify the certificate subject, issuer, and validity period. Investigate missing, expired, unexpected, or world-writable CA files and confirm rsyslog TLS peer-authentication settings use them.
 - id: 6.2.3.37
   title: Ensure the running and on disk configuration is the same
   profiles:
   - level2_server
   - level2_workstation
-  expected: The compiled audit rules are current and active watch/syscall rules match the on-disk rules.
+  expected: Manual review required by the benchmark
+  guidance: Follow the CIS Debian Linux 13 Benchmark v1.0.0 audit procedure and retain site-specific evidence.
+  evidence_description: augenrules check output, compiled on-disk audit rules, currently loaded rules, and a normalized difference.
   audit: !unsafe |
-    command -v augenrules >/dev/null 2>&1 || { echo 'augenrules is unavailable'; exit 1; }
-    command -v auditctl >/dev/null 2>&1 || { echo 'auditctl is unavailable'; exit 1; }
-    check_output="$(augenrules --check 2>&1)"
-    check_rc=$?
-    printf '%s\n' "$check_output"
-    [ "$check_rc" -eq 0 ] || exit 1
-    [ -r /etc/audit/audit.rules ] || { echo '/etc/audit/audit.rules is missing or unreadable'; exit 1; }
-    normalize_rules() {
-      sed -E 's/^[[:space:]]+//; s/[[:space:]]+/ /g; s/[[:space:]]+$//' | grep -E '^(-a|-w)[[:space:]]' | sort -u
-    }
-    disk_rules="$(normalize_rules < /etc/audit/audit.rules)"
-    running_output="$(auditctl -l 2>&1)"
-    running_rc=$?
-    [ "$running_rc" -eq 0 ] || { printf '%s\n' "$running_output"; exit 1; }
-    running_rules="$(normalize_rules <<< "$running_output")"
-    if diff_output="$(diff -u <(printf '%s\n' "$disk_rules") <(printf '%s\n' "$running_rules") 2>&1)"; then
-      echo 'PASS: running watch/syscall audit rules match /etc/audit/audit.rules'
-    else
-      echo 'FAIL: running and on-disk audit rules differ'
-      printf '%s\n' "$diff_output"
-      exit 1
-    fi
+    echo '=== augenrules compilation state ==='
+    command -v augenrules >/dev/null 2>&1 && augenrules --check 2>&1 || echo 'augenrules is unavailable or reported a difference.'
+    echo
+    echo '=== On-disk watch and syscall rules ==='
+    disk="$(grep -Ph '^[[:space:]]*(-a|-w)[[:space:]]' /etc/audit/audit.rules 2>/dev/null | sed -E 's/^[[:space:]]+//;s/[[:space:]]+/ /g;s/[[:space:]]+$//' | sort -u || true)"
+    [ -n "$disk" ] && printf '%s\n' "$disk" || echo 'No compiled on-disk watch/syscall rules were found.'
+    echo
+    echo '=== Running watch and syscall rules ==='
+    running="$(auditctl -l 2>/dev/null | sed -E 's/^[[:space:]]+//;s/[[:space:]]+/ /g;s/[[:space:]]+$//' | grep -E '^(-a|-w)[[:space:]]' | sort -u || true)"
+    [ -n "$running" ] && printf '%s\n' "$running" || echo 'No running rules were returned, or auditctl is unavailable.'
+    echo
+    echo '=== Difference: on disk (-) versus running (+) ==='
+    difference="$(diff -u <(printf '%s\n' "$disk") <(printf '%s\n' "$running") 2>&1 || true)"
+    [ -n "$difference" ] && printf '%s\n' "$difference" || echo 'No normalized watch/syscall rule differences were found.'
+    exit 0
+  review: >-
+    First confirm augenrules reports that the compiled file is current. Then review the normalized difference: lines prefixed with minus exist only on disk, while lines prefixed with plus exist only in the running kernel configuration. No unexplained difference should remain. Account for rule-format normalization, immutable audit mode, and changes awaiting reboot, and document any approved temporary difference.

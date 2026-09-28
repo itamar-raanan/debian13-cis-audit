@@ -133,7 +133,7 @@ tbody tr:hover { background: rgba(119,167,255,.045); }
 .badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .badge.PASS { color: var(--pass); background: color-mix(in srgb, var(--pass) 13%, transparent); }
 .badge.FAIL { color: var(--fail); background: color-mix(in srgb, var(--fail) 13%, transparent); }
-.badge.MANUAL { color: var(--manual); background: color-mix(in srgb, var(--manual) 13%, transparent); }
+.badge.MANUAL, .badge.REVIEW { color: var(--manual); background: color-mix(in srgb, var(--manual) 13%, transparent); }
 .badge.EXCLUDED { color: var(--excluded); background: color-mix(in srgb, var(--excluded) 13%, transparent); }
 .badge.ERROR { color: var(--error); background: color-mix(in srgb, var(--error) 13%, transparent); }
 .badge.NOT_APPLICABLE { color: var(--na); background: color-mix(in srgb, var(--na) 13%, transparent); }
@@ -157,7 +157,9 @@ pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospac
 .action-head { padding: 13px 14px; }
 .action-label { color: var(--fail); font-size: .69rem; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
 .action-label.error { color: var(--error); }
-.action-label.manual { color: var(--manual); }
+.action-label.manual, .action-label.review { color: var(--manual); }
+.review-guidance { margin-top: 10px; padding: 11px 12px; border: 1px solid color-mix(in srgb, var(--manual) 34%, var(--border)); border-radius: 9px; background: color-mix(in srgb, var(--manual) 7%, var(--panel)); color: var(--muted); font-size: .82rem; white-space: pre-wrap; }
+.review-guidance strong { display: block; margin-bottom: 5px; color: var(--text); }
 .action-summary { margin-top: 5px; font-weight: 720; }
 .action-target { margin-top: 8px; color: var(--muted); font-size: .8rem; }
 .action-steps { margin: 10px 0 0; padding-left: 20px; color: var(--muted); font-size: .82rem; }
@@ -218,7 +220,7 @@ summary { cursor: pointer; padding: 10px 14px; font-weight: 750; font-size: .8re
     <div class="card"><div class="label">Total</div><div class="value">{{ cis_summary.total }}</div></div>
     <div class="card pass"><div class="label">Passed</div><div class="value">{{ cis_summary.pass }}</div></div>
     <div class="card fail"><div class="label">Failed</div><div class="value">{{ cis_summary.fail }}</div></div>
-    <div class="card manual"><div class="label">Manual</div><div class="value">{{ cis_summary.manual }}</div></div>
+    <div class="card manual"><div class="label">Needs review</div><div class="value">{{ cis_summary.review }}</div></div>
     <div class="card excluded"><div class="label">Excluded</div><div class="value">{{ cis_summary.excluded }}</div></div>
     <div class="card error"><div class="label">Errors</div><div class="value">{{ cis_summary.error }}</div></div>
   </section>
@@ -231,7 +233,7 @@ summary { cursor: pointer; padding: 10px 14px; font-weight: 750; font-size: .8re
       <option value="ALL">All statuses</option>
       <option value="FAIL">Failed</option>
       <option value="ERROR">Errors</option>
-      <option value="MANUAL">Manual</option>
+      <option value="REVIEW">Needs review</option>
       <option value="PASS">Passed</option>
       <option value="EXCLUDED">Excluded</option>
       <option value="NOT_APPLICABLE">Not applicable</option>
@@ -249,13 +251,13 @@ summary { cursor: pointer; padding: 10px 14px; font-weight: 750; font-size: .8re
           <td><div class="control-cell"><span class="control-id">{{ result.id }}</span><span class="badge {{ result.status }}">{{ result.status | replace('_', ' ') }}</span></div></td>
           <td class="requirement-cell">
             <h3 class="title">{{ result.title }}</h3>
-            <p class="target"><strong>Expected:</strong> {{ result.expected | e }}</p>
+            <p class="target"><strong>{% if result.status == 'REVIEW' %}Assessment:{% else %}Expected:{% endif %}</strong> {{ result.expected | e }}</p>
             <details class="evidence-details">
               <summary>Show collected evidence</summary>
               <pre class="evidence">{{ result.evidence_text | default(result.actual) | e }}</pre>
             </details>
             <div class="expected-evidence">
-              <strong>Expected evidence</strong>
+              <strong>{% if result.status == 'REVIEW' %}Evidence to review{% else %}Expected evidence{% endif %}</strong>
               <p>{{ result.expected_evidence | default(result.expected) | e }}</p>
             </div>
           </td>
@@ -282,7 +284,7 @@ CIS_CHECK</code></pre>
             </div>
           </td>
           <td class="action-cell">
-          {% if result.status in ['FAIL', 'ERROR', 'MANUAL'] %}
+          {% if result.status in ['FAIL', 'ERROR', 'MANUAL', 'REVIEW'] %}
             <div class="action-card">
               <div class="action-head">
                 {% if result.status == 'ERROR' %}
@@ -294,14 +296,14 @@ CIS_CHECK</code></pre>
                   <li>Run the read-only command in <strong>How to check</strong> and correct the audit prerequisite.</li>
                   <li>Re-run control <strong>{{ result.id }}</strong>. Only remediate the system setting if the result is FAIL.</li>
                 </ol>
-                {% elif result.status == 'MANUAL' %}
-                <div class="action-label manual">Manual review required</div>
-                <div class="action-summary">Collect the requested evidence and compare it with the target state.</div>
-                <div class="action-target"><strong>Target:</strong> {{ result.expected | e }}</div>
+                {% elif result.status in ['MANUAL', 'REVIEW'] %}
+                <div class="action-label review">Human review required</div>
+                <div class="action-summary">The current state was collected successfully. Decide whether it is acceptable under your organization’s policy.</div>
+                <div class="review-guidance"><strong>How to review this evidence</strong>{{ result.review_guidance | default('Compare every collected value with the organization-approved configuration and document the decision.') | e }}</div>
                 <ol class="action-steps">
-                  <li>Follow the review steps in <strong>How to check</strong>.</li>
-                  <li>Document the evidence and any approved exception.</li>
-                  <li>If the target is not met, apply the approved remediation and verify again.</li>
+                  <li>Read the collected current state and follow the review guidance above.</li>
+                  <li>Record the reviewer, decision, date, and any approved exception.</li>
+                  <li>If the state is not approved, use the benchmark remediation guidance and collect the evidence again.</li>
                 </ol>
                 {% else %}
                 <div class="action-label">Configuration change required</div>
@@ -315,7 +317,7 @@ CIS_CHECK</code></pre>
                 {% endif %}
               </div>
               <details class="remediation-details">
-                <summary>Show remediation steps</summary>
+                <summary>{% if result.status == 'REVIEW' %}Show benchmark guidance if the state is not approved{% else %}Show remediation steps{% endif %}</summary>
                 <div class="remediation-content">
                   <pre class="remediation-source" hidden>{{ result.remediation | default('No remediation guidance is available.') | e }}</pre>
                   <div class="remediation-rendered"></div>
@@ -489,7 +491,7 @@ CIS_CHECK</code></pre>
     rows.forEach(row => {
       const status = row.dataset.status;
       const matchesStatus = selected === 'ALL' || status === selected;
-      const matchesAction = !actionOnly || ['FAIL', 'ERROR', 'MANUAL'].includes(status);
+      const matchesAction = !actionOnly || ['FAIL', 'ERROR', 'MANUAL', 'REVIEW'].includes(status);
       const matchesSearch = !query || row.textContent.toLowerCase().includes(query);
       const show = matchesStatus && matchesAction && matchesSearch;
       row.hidden = !show;

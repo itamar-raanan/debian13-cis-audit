@@ -219,31 +219,25 @@ cis_user_account_controls:
       [ -z "$good" ] || printf '%s\n' "$good"
       exit "$fail"
 
+cis_user_account_manual_controls:
   - id: "5.4.1.2"
     title: Ensure minimum password days is configured
     profiles: *all_profiles
     expected: PASS_MIN_DAYS and all existing local interactive accounts meet the organization-defined minimum, commonly 1 day or more
+    guidance: Review PASS_MIN_DAYS in /etc/login.defs and the minimum password age field for every local interactive account in /etc/shadow. Confirm the value matches organizational policy.
+    evidence_description: PASS_MIN_DAYS from login.defs and the minimum password age for every local account with a password hash.
     audit: !unsafe |
-      policy="${CIS_PASSWORD_MIN_DAYS:-1}"
-      [[ "$policy" =~ ^[1-9][0-9]*$ ]] || { echo "Invalid cis_password_min_days policy: $policy"; exit 2; }
-      login_min="$(awk '$1 == "PASS_MIN_DAYS" {value=$2} END {print value}' /etc/login.defs)"
-      failed=0
-      if [[ "$login_min" =~ ^[0-9]+$ ]] && [ "$login_min" -ge "$policy" ]; then
-        echo "PASS: /etc/login.defs PASS_MIN_DAYS=$login_min policy=$policy"
-      else
-        echo "FAIL: /etc/login.defs PASS_MIN_DAYS=${login_min:-unset} policy=$policy"
-        failed=1
-      fi
+      echo '=== Default for newly created accounts ==='
+      default_value="$(awk '$1 == "PASS_MIN_DAYS" {value=$2} END {print value}' /etc/login.defs 2>/dev/null)"
+      printf 'PASS_MIN_DAYS=%s\n' "${default_value:-unset}"
+      echo
+      echo '=== Existing password-bearing accounts ==='
+      found=0
       while IFS=: read -r user password _ minimum _; do
         case "$password" in
-          \$*|!\$*) ;;
-          *) continue ;;
+          \$*|!\$*) printf 'user=%s minimum_password_days=%s\n' "$user" "${minimum:-unset}"; found=1 ;;
         esac
-        if [[ "$minimum" =~ ^[0-9]+$ ]] && [ "$minimum" -ge "$policy" ]; then
-          echo "PASS: user=$user minimum_days=$minimum"
-        else
-          echo "FAIL: user=$user minimum_days=${minimum:-unset} policy=$policy"
-          failed=1
-        fi
       done < /etc/shadow
-      exit "$failed"
+      [ "$found" -eq 1 ] || echo 'No local accounts with password hashes were found.'
+    review: >-
+      Compare PASS_MIN_DAYS and every listed account value with the organization-approved minimum password age. The login.defs value affects new accounts only, so existing accounts must be reviewed separately. Investigate values below policy, document service-account exceptions, and confirm that approved exceptions have an owner and expiration date.
