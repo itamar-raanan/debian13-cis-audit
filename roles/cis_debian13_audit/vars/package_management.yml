@@ -2,10 +2,90 @@
 cis_package_management_controls:
   - id: '1.2.1.1'
     title: Ensure the source.list and .source files use the Signed-By option
-    assessment: Manual
+    assessment: Automated
     profiles: [level1_server, level1_workstation, level2_server, level2_workstation]
-    expected: Every active APT repository is approved and uses a repository-specific Signed-By key.
-    guidance: Review /etc/apt/sources.list and files under /etc/apt/sources.list.d against site policy.
+    expected: Every active APT repository uses a repository-specific Signed-By key or embedded key block.
+    audit: !unsafe |
+      shopt -s nullglob
+      files=(/etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources)
+      active=0
+      failed=0
+      repository_patterns="${CIS_APPROVED_APT_REPOSITORY_PATTERNS:-}"
+      if [ -n "$repository_patterns" ]; then
+        printf 'Approved APT repository patterns:\n%s\n' "$repository_patterns"
+      else
+        echo 'APT URI approval matching is disabled because cis_approved_apt_repository_patterns is empty.'
+      fi
+      repository_approved() {
+        local uri="$1" pattern
+        [ -z "$repository_patterns" ] && return 0
+        while IFS= read -r pattern; do
+          [ -n "$pattern" ] || continue
+          [[ "$uri" =~ $pattern ]] && return 0
+        done <<< "$repository_patterns"
+        return 1
+      }
+      check_repository_uri() {
+        local uri="$1" location="$2"
+        if [ -z "$uri" ]; then
+          echo "FAIL: $location has no repository URI"
+          failed=1
+        elif repository_approved "$uri"; then
+          echo "PASS: approved repository URI=$uri ($location)"
+        else
+          echo "FAIL: unapproved repository URI=$uri ($location)"
+          failed=1
+        fi
+      }
+      for file in "${files[@]}"; do
+        [ -f "$file" ] || continue
+        case "$file" in
+          *.sources)
+            while IFS='|' read -r stanza enabled types signed_by uris; do
+              [ "$enabled" = no ] && continue
+              grep -Pqi '(^|\s)deb(\s|$)' <<< "$types" || continue
+              active=$((active + 1))
+              if [ -z "$signed_by" ]; then
+                echo "FAIL: $file stanza $stanza has no Signed-By field"
+                failed=1
+              else
+                echo "PASS: $file stanza $stanza Signed-By=$signed_by"
+              fi
+              for uri in $uris; do
+                check_repository_uri "$uri" "$file stanza $stanza"
+              done
+              [ -n "$uris" ] || check_repository_uri '' "$file stanza $stanza"
+            done < <(awk 'BEGIN {RS=""; FS="\n"; IGNORECASE=1}
+              { enabled="yes"; types=""; signed=""; uris="";
+                for (i=1; i<=NF; i++) {
+                  if ($i ~ /^[[:space:]]*Enabled:/) {sub(/^[^:]*:[[:space:]]*/, "", $i); enabled=tolower($i)}
+                  if ($i ~ /^[[:space:]]*Types:/) {sub(/^[^:]*:[[:space:]]*/, "", $i); types=$i}
+                  if ($i ~ /^[[:space:]]*Signed-By:/) {sub(/^[^:]*:[[:space:]]*/, "", $i); signed=($i == "" ? "embedded-key" : $i)}
+                  if ($i ~ /^[[:space:]]*URIs:/) {sub(/^[^:]*:[[:space:]]*/, "", $i); uris=$i}
+                }
+                printf "%d|%s|%s|%s|%s\n", NR, enabled, types, signed, uris
+              }' "$file")
+            ;;
+          *)
+            while IFS= read -r line; do
+              [[ "$line" =~ ^[[:space:]]*deb(-src)?[[:space:]] ]] || continue
+              active=$((active + 1))
+              repository="$(sed -E 's/^[[:space:]]*deb(-src)?[[:space:]]+//' <<< "$line")"
+              [[ "$repository" != \[* ]] || repository="${repository#*]}"
+              read -r uri _ <<< "$repository"
+              check_repository_uri "$uri" "$file"
+              if grep -Pqi '^[[:space:]]*deb(?:-src)?[[:space:]]+\[[^]]*\bsigned-by\s*=' <<< "$line"; then
+                echo "PASS: $file: $line"
+              else
+                echo "FAIL: $file active repository has no signed-by option: $line"
+                failed=1
+              fi
+            done < <(grep -Pv '^[[:space:]]*#' "$file" 2>/dev/null || true)
+            ;;
+        esac
+      done
+      [ "$active" -gt 0 ] || { echo 'FAIL: no active APT repositories were found'; exit 1; }
+      exit "$failed"
 
   - id: '1.2.1.2'
     title: Ensure weak dependencies are configured
@@ -113,7 +193,28 @@ cis_package_management_controls:
 
   - id: '1.2.2.1'
     title: Ensure updates, patches, and additional security software are installed
-    assessment: Manual
+    assessment: Automated
     profiles: [level1_server, level1_workstation, level2_server, level2_workstation]
     expected: No pending approved updates and no pending reboot, according to site policy.
-    guidance: Run apt update and apt -s upgrade, then review /var/run/reboot-required. This role does not refresh package metadata.
+    audit: !unsafe |
+      command -v apt-get >/dev/null 2>&1 || { echo 'apt-get is unavailable'; exit 2; }
+      output="$(LC_ALL=C apt-get -s -o Debug::NoLocking=1 upgrade 2>&1)"
+      rc=$?
+      [ "$rc" -eq 0 ] || { printf '%s\n' "$output"; exit 2; }
+      pending="$(grep -E '^Inst ' <<< "$output" || true)"
+      failed=0
+      if [ -n "$pending" ]; then
+        echo 'Pending package updates:'
+        printf '%s\n' "$pending"
+        failed=1
+      else
+        echo 'No pending package updates were found using the current APT metadata.'
+      fi
+      if [ -e /var/run/reboot-required ]; then
+        echo 'A reboot is required.'
+        [ ! -r /var/run/reboot-required.pkgs ] || sed 's/^/  package: /' /var/run/reboot-required.pkgs
+        failed=1
+      else
+        echo 'No pending reboot marker exists.'
+      fi
+      exit "$failed"

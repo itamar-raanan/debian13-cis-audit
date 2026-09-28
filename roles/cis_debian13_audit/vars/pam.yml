@@ -259,9 +259,42 @@ cis_pam_controls:
     audit: !unsafe |
       grep -PH '^\s*password\s+[^#]+\s+pam_unix\.so\s+.*\buse_authtok\b' /etc/pam.d/common-password
 
-cis_pam_manual_controls:
   - id: "5.3.3.2.3"
     title: Ensure password complexity is configured
     profiles: *all_profiles
     expected: Password complexity meets local policy using minclass or non-positive dcredit, ucredit, lcredit, and ocredit values, with no positive credit overrides
-    guidance: Review effective pwquality minclass and character-class credit settings in /etc/security/pwquality.conf, /etc/security/pwquality.conf.d/*.conf, and pam_pwquality arguments. Confirm the selected combination meets local site policy and that no credit value greater than zero weakens the requirement.
+    audit: !unsafe |
+      shopt -s nullglob
+      config_files=(/etc/security/pwquality.conf /etc/security/pwquality.conf.d/*.conf)
+      pam_line="$(grep -Phs '^\s*password\s+[^#]+\s+pam_pwquality\.so\b' /etc/pam.d/common-password 2>/dev/null | tail -1 || true)"
+      effective_value() {
+        local key="$1" value=''
+        value="$(grep -Phsi "^\\s*${key}\\s*=\\s*-?[0-9]+" "${config_files[@]}" 2>/dev/null | tail -1 | grep -Po -- '-?[0-9]+' | tail -1 || true)"
+        pam_value="$(grep -Po "(?:^|[[:space:]])${key}\\s*=\\s*\\K-?[0-9]+" <<< "$pam_line" | tail -1 || true)"
+        [ -z "$pam_value" ] || value="$pam_value"
+        printf '%s' "$value"
+      }
+      minclass="$(effective_value minclass)"
+      dcredit="$(effective_value dcredit)"
+      ucredit="$(effective_value ucredit)"
+      lcredit="$(effective_value lcredit)"
+      ocredit="$(effective_value ocredit)"
+      printf 'pam_pwquality=%s\nminclass=%s\ndcredit=%s\nucredit=%s\nlcredit=%s\nocredit=%s\n' \
+        "${pam_line:-missing}" "${minclass:-unset}" "${dcredit:-unset}" "${ucredit:-unset}" "${lcredit:-unset}" "${ocredit:-unset}"
+      [ -n "$pam_line" ] || { echo 'FAIL: pam_pwquality is not active in common-password'; exit 1; }
+      for value in "$dcredit" "$ucredit" "$lcredit" "$ocredit"; do
+        if [ -n "$value" ] && [ "$value" -gt 0 ]; then
+          echo 'FAIL: a positive credit weakens the character-class requirement'
+          exit 1
+        fi
+      done
+      if [ -n "$minclass" ] && [ "$minclass" -ge 4 ]; then
+        echo 'PASS: minclass requires all four character classes'
+        exit 0
+      fi
+      if [ "${dcredit:-0}" -le -1 ] && [ "${ucredit:-0}" -le -1 ] && [ "${lcredit:-0}" -le -1 ] && [ "${ocredit:-0}" -le -1 ]; then
+        echo 'PASS: every character class has a minimum requirement'
+        exit 0
+      fi
+      echo 'FAIL: configure minclass >= 4 or set every character-class credit <= -1'
+      exit 1

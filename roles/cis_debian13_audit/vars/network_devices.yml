@@ -2,10 +2,36 @@
 cis_network_device_controls:
   - id: '3.1.1'
     title: Ensure IPv6 status is identified
-    assessment: Manual
+    assessment: Automated
     profiles: [level1_server, level2_server, level1_workstation, level2_workstation]
     expected: IPv6 status is identified and documented in accordance with local site policy
-    guidance: Review /sys/module/ipv6/parameters/disable and net.ipv6.conf.*.disable_ipv6; document whether IPv6 is enabled or disabled.
+    audit: !unsafe |
+      module_state=unknown
+      [ ! -r /sys/module/ipv6/parameters/disable ] || module_state="$(cat /sys/module/ipv6/parameters/disable)"
+      all_state="$(sysctl -n net.ipv6.conf.all.disable_ipv6 2>/dev/null || echo unavailable)"
+      default_state="$(sysctl -n net.ipv6.conf.default.disable_ipv6 2>/dev/null || echo unavailable)"
+      enabled_interfaces=()
+      disabled_interfaces=()
+      for setting in /proc/sys/net/ipv6/conf/*/disable_ipv6; do
+        [ -r "$setting" ] || continue
+        interface="$(basename "$(dirname "$setting")")"
+        value="$(cat "$setting")"
+        if [ "$value" = 0 ]; then
+          enabled_interfaces+=("$interface")
+        else
+          disabled_interfaces+=("$interface")
+        fi
+      done
+      if [[ "$module_state" == 1 ]] || [[ "$all_state" == 1 && ${#enabled_interfaces[@]} -eq 0 ]]; then
+        status=disabled
+      elif ((${#enabled_interfaces[@]} > 0)); then
+        status=enabled
+      else
+        status=indeterminate
+      fi
+      printf 'IPv6 status=%s\nmodule_disable=%s\nall.disable_ipv6=%s\ndefault.disable_ipv6=%s\n' "$status" "$module_state" "$all_state" "$default_state"
+      printf 'enabled_interfaces=%s\ndisabled_interfaces=%s\n' "${enabled_interfaces[*]:-none}" "${disabled_interfaces[*]:-none}"
+      [ "$status" != indeterminate ]
 
   - id: '3.1.2'
     title: Ensure wireless interfaces are not available
