@@ -6,7 +6,7 @@
 
 - name: Section 6 automated controls
   ansible.builtin.include_tasks: audit_shell_control.yml
-  loop: "{{ cis_section6_controls }}"
+  loop: "{{ cis_section6_controls + (cis_section6_manual_controls | selectattr('assessment', 'equalto', 'Automated') | list) }}"
   loop_control:
     loop_var: cis_control
     label: "{{ cis_control.id }} {{ cis_control.title }}"
@@ -15,7 +15,7 @@
 
 - name: Section 6 manual controls
   ansible.builtin.include_tasks: audit_manual_control.yml
-  loop: "{{ cis_section6_manual_controls }}"
+  loop: "{{ cis_section6_manual_controls | selectattr('assessment', 'equalto', 'Manual') | list }}"
   loop_control:
     loop_var: cis_control
     label: "{{ cis_control.id }} {{ cis_control.title }}"
