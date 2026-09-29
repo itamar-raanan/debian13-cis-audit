@@ -869,10 +869,11 @@ cis_section6_manual_controls:
   - level2_server
   - level2_workstation
   expected: >-
-    Best practice is for augenrules --check to report that the compiled rules are current and for the active kernel watch/syscall rules to match /etc/audit/audit.rules after whitespace normalization.
+    The auditd tools are installed, augenrules --check reports that the compiled rules are current, and the active kernel watch/syscall rules match /etc/audit/audit.rules after whitespace normalization.
   audit: !unsafe |
-    command -v augenrules >/dev/null 2>&1 || { echo 'augenrules is unavailable.'; exit 2; }
-    command -v auditctl >/dev/null 2>&1 || { echo 'auditctl is unavailable.'; exit 2; }
+    export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
+    command -v augenrules >/dev/null 2>&1 || { echo 'FAIL: augenrules is unavailable. Install the auditd package.'; exit 1; }
+    command -v auditctl >/dev/null 2>&1 || { echo 'FAIL: auditctl is unavailable. Install the auditd package.'; exit 1; }
     check_output="$(augenrules --check 2>&1)"
     check_rc=$?
     printf '%s\n' "$check_output"

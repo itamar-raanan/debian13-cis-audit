@@ -96,10 +96,14 @@ cis_kernel_module_manual_controls:
   - level1_server
   - level1_workstation
   expected: >-
-    Known-risk filesystem modules from the CIS benchmark (ceph, cifs, exfat, ext, fat, fscache, fuse, gfs2, nfs_common, nfsd, and smbfs_common) are absent, actively used by a mounted filesystem, or both unloaded and disabled with blacklist plus install /bin/false or /bin/true rules.
+    The kmod inspection tools are installed. Known-risk filesystem modules from the CIS benchmark (ceph, cifs, exfat, ext, fat, fscache, fuse, gfs2, nfs_common, nfsd, and smbfs_common) are absent, actively used by a mounted filesystem, or both unloaded and disabled with blacklist plus install /bin/false or /bin/true rules.
   audit: !unsafe |
+    export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
     for command in findmnt modinfo modprobe lsmod; do
-      command -v "$command" >/dev/null 2>&1 || { echo "$command is unavailable."; exit 2; }
+      command -v "$command" >/dev/null 2>&1 || {
+        echo "FAIL: $command is unavailable. Install the kmod and util-linux packages required to inspect kernel modules."
+        exit 1
+      }
     done
     mounted="$(findmnt -Dkerno FSTYPE 2>/dev/null | sort -u)"
     config="$(modprobe --showconfig 2>/dev/null)"
