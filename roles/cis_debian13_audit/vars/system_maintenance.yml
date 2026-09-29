@@ -285,31 +285,45 @@ cis_section7_controls:
 cis_section7_manual_controls:
 - id: 7.1.13
   title: Ensure SUID and SGID files are reviewed
+  assessment: Automated
   profiles:
   - level1_server
   - level1_workstation
-  expected: Manual review required by the benchmark
-  guidance: Follow the CIS Debian Linux 13 Benchmark v1.0.0 audit procedure and retain site-specific evidence.
-  evidence_description: Every SUID/SGID regular file on local filesystems with mode, owner, group, and owning Debian package when identifiable.
+  expected: >-
+    Best-practice automated baseline: every SUID/SGID regular file on a local filesystem is owned by an installed Debian package, owned by root, and is not writable by group or other. Unowned or locally added privileged files fail and require explicit investigation.
   audit: !unsafe |
     command -v findmnt >/dev/null 2>&1 || { echo 'findmnt is unavailable; local filesystems could not be enumerated.'; exit 2; }
-    found=0
+    command -v dpkg-query >/dev/null 2>&1 || { echo 'dpkg-query is unavailable.'; exit 2; }
+    found=0 failed=0
     review_file() {
-      local file="$1" package
-      package="$(dpkg-query -S "$file" 2>/dev/null | head -1 | cut -d: -f1 || true)"
-      stat -Lc 'path=%n mode=%a owner=%U group=%G' "$file"
-      printf 'package=%s\n\n' "${package:-unowned}"
+      local file="$1" package mode uid owner group alternate
       found=1
+      package="$(dpkg-query -S "$file" 2>/dev/null | head -1 | cut -d: -f1 || true)"
+      if [ -z "$package" ]; then
+        case "$file" in
+          /usr/*) alternate="${file#/usr}" ;;
+          /bin/*|/sbin/*|/lib/*) alternate="/usr$file" ;;
+        esac
+        [ -z "${alternate:-}" ] || package="$(dpkg-query -S "$alternate" 2>/dev/null | head -1 | cut -d: -f1 || true)"
+      fi
+      read -r mode uid owner group < <(stat -Lc '%a %u %U %G' "$file")
+      if [ -n "$package" ] && dpkg-query -W -f='${db:Status-Status}' "$package" 2>/dev/null | grep -qx installed \
+          && [ "$uid" -eq 0 ] && [ $((8#$mode & 8#0022)) -eq 0 ]; then
+        printf 'PASS: path=%s mode=%s owner=%s group=%s package=%s\n' "$file" "$mode" "$owner" "$group" "$package"
+      else
+        printf 'FAIL: path=%s mode=%s owner=%s group=%s package=%s\n' "$file" "$mode" "$owner" "$group" "${package:-unowned}"
+        failed=1
+      fi
     }
     while read -r target fstype; do
       case "$fstype" in
         ext2|ext3|ext4|xfs|btrfs|zfs|f2fs|jfs|reiserfs|bcachefs|overlay)
+          target="${target//\\040/ }"
           while IFS= read -r -d '' file; do
             review_file "$file"
           done < <(find "$target" -xdev -type f \( -perm -4000 -o -perm -2000 \) -print0 2>/dev/null)
           ;;
       esac
     done < <(findmnt -rn -o TARGET,FSTYPE 2>/dev/null)
-    [ "$found" -eq 1 ] || echo 'No SUID or SGID regular files were found on local filesystems.'
-  review: >-
-    Compare every file with the organization-approved SUID/SGID inventory or a trusted Debian package baseline. Confirm the owning package is installed and expected, the path and privilege bits match the package or approved local application, and the file is not writable by an untrusted user or group. Investigate all unowned files, locally added binaries, unexpected locations, and package-owned files that the host does not require. Record approval or removal decisions for every exception.
+    [ "$found" -eq 1 ] || echo 'PASS: no SUID or SGID regular files were found on local filesystems.'
+    exit "$failed"

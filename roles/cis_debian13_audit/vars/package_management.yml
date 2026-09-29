@@ -2,21 +2,30 @@
 cis_package_management_controls:
   - id: '1.2.1.1'
     title: Ensure the source.list and .source files use the Signed-By option
-    assessment: Manual
+    assessment: Automated
     profiles: [level1_server, level1_workstation, level2_server, level2_workstation]
-    expected: Every active APT repository is approved and uses a repository-specific Signed-By key.
-    guidance: Review /etc/apt/sources.list and files under /etc/apt/sources.list.d against site policy.
-    evidence_description: Every active APT source entry, including its source file, URI, suite, components, and Signed-By setting.
+    expected: >-
+      The only active binary APT source is exactly: deb http://artifactory.dmz.internal/artifactory/prod-remote-debian-debian trixie main non-free-firmware
     audit: !unsafe |
       shopt -s nullglob
       files=(/etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources)
-      found=0
+      expected='deb http://artifactory.dmz.internal/artifactory/prod-remote-debian-debian trixie main non-free-firmware'
+      found=0 failed=0
       for file in "${files[@]}"; do
         [ -f "$file" ] || continue
         case "$file" in
           *.sources)
-            records="$(awk -v file="$file" 'BEGIN {RS=""; FS="\n"; IGNORECASE=1}
-              { enabled="yes"; types=""; uris=""; suites=""; components=""; signed="unset";
+            while IFS= read -r entry; do
+              [ -n "$entry" ] || continue
+              found=$((found + 1))
+              if [ "$entry" = "$expected" ]; then
+                printf 'PASS: %s: %s\n' "$file" "$entry"
+              else
+                printf 'FAIL: %s: %s\n' "$file" "$entry"
+                failed=1
+              fi
+            done < <(awk 'BEGIN {RS=""; FS="\n"; IGNORECASE=1}
+              { enabled="yes"; types=""; uris=""; suites=""; components="";
                 for (i=1; i<=NF; i++) {
                   line=$i
                   if (line ~ /^[[:space:]]*Enabled:/) {sub(/^[^:]*:[[:space:]]*/, "", line); enabled=tolower(line)}
@@ -24,29 +33,30 @@ cis_package_management_controls:
                   if (line ~ /^[[:space:]]*URIs:/) {sub(/^[^:]*:[[:space:]]*/, "", line); uris=line}
                   if (line ~ /^[[:space:]]*Suites:/) {sub(/^[^:]*:[[:space:]]*/, "", line); suites=line}
                   if (line ~ /^[[:space:]]*Components:/) {sub(/^[^:]*:[[:space:]]*/, "", line); components=line}
-                  if (line ~ /^[[:space:]]*Signed-By:/) {sub(/^[^:]*:[[:space:]]*/, "", line); signed=(line == "" ? "embedded key block" : line)}
                 }
                 if (enabled != "no" && types ~ /(^|[[:space:]])deb([[:space:]]|$)/) {
-                  printf "file=%s stanza=%d enabled=%s types=%s uri=%s suites=%s components=%s signed_by=%s\n", file, NR, enabled, types, uris, suites, components, signed
+                  n=split(uris, uri, /[[:space:]]+/); m=split(suites, suite, /[[:space:]]+/)
+                  for (u=1; u<=n; u++) for (s=1; s<=m; s++) printf "deb %s %s %s\n", uri[u], suite[s], components
                 }
-              }' "$file")"
-            if [ -n "$records" ]; then
-              printf '%s\n' "$records"
-              found=1
-            fi
+              }' "$file")
             ;;
           *)
             while IFS= read -r line; do
-              [[ "$line" =~ ^[[:space:]]*deb(-src)?[[:space:]] ]] || continue
-              printf 'file=%s entry=%s\n' "$file" "$line"
-              found=1
+              [[ "$line" =~ ^[[:space:]]*deb[[:space:]] ]] || continue
+              entry="$(sed -E 's/^[[:space:]]+//;s/[[:space:]]+/ /g;s/[[:space:]]+$//' <<< "$line")"
+              found=$((found + 1))
+              if [ "$entry" = "$expected" ]; then
+                printf 'PASS: %s: %s\n' "$file" "$entry"
+              else
+                printf 'FAIL: %s: %s\n' "$file" "$entry"
+                failed=1
+              fi
             done < <(grep -Pv '^[[:space:]]*#' "$file" 2>/dev/null || true)
             ;;
         esac
       done
-      [ "$found" -eq 1 ] || echo 'No active APT repository entries were found.'
-    review: >-
-      Verify that every URI belongs to an organization-approved repository, such as the company Artifactory instance. Confirm the suite and components are appropriate for Debian 13, every entry uses HTTPS where required, and Signed-By names the approved repository-specific key or contains the approved embedded key. Investigate any direct Internet, test, duplicate, disabled-policy, or unsigned source and document the approval decision.
+      [ "$found" -gt 0 ] || { echo 'FAIL: no active binary APT source was found.'; exit 1; }
+      exit "$failed"
 
   - id: '1.2.1.2'
     title: Ensure weak dependencies are configured
@@ -154,31 +164,51 @@ cis_package_management_controls:
 
   - id: '1.2.2.1'
     title: Ensure updates, patches, and additional security software are installed
-    assessment: Manual
+    assessment: Automated
     profiles: [level1_server, level1_workstation, level2_server, level2_workstation]
-    expected: No pending approved updates and no pending reboot, according to site policy.
-    guidance: Run apt update and apt -s upgrade, then review /var/run/reboot-required. This role does not refresh package metadata.
-    evidence_description: Pending upgrades from current APT metadata, held packages, and reboot-required state.
+    expected: >-
+      APT metadata is no more than 24 hours old, a simulated full upgrade reports no pending packages, no packages are held, and no reboot is pending. The audit never refreshes metadata or installs updates.
     audit: !unsafe |
-      echo '=== Pending upgrades using current package metadata ==='
-      if command -v apt-get >/dev/null 2>&1; then
-        LC_ALL=C apt-get -s -o Debug::NoLocking=1 upgrade 2>&1 | grep -E '^(Inst |[0-9]+ upgraded,)' || echo 'No pending upgrades were reported.'
+      command -v apt-get >/dev/null 2>&1 || { echo 'apt-get is unavailable.'; exit 2; }
+      failed=0
+      newest="$(find /var/lib/apt/lists -maxdepth 1 -type f -printf '%T@\n' 2>/dev/null | sort -n | tail -1)"
+      now="$(date +%s)"
+      if [ -z "$newest" ]; then
+        echo 'FAIL: no APT package metadata was found.'
+        failed=1
       else
-        echo 'apt-get is not installed.'
+        age=$((now - ${newest%.*}))
+        if [ "$age" -le 86400 ]; then
+          printf 'PASS: newest APT metadata is %s seconds old (maximum 86400).\n' "$age"
+        else
+          printf 'FAIL: newest APT metadata is %s seconds old (maximum 86400). Run apt-get update.\n' "$age"
+          failed=1
+        fi
       fi
-      echo
-      echo '=== Held packages ==='
+      output="$(LC_ALL=C apt-get -s -o Debug::NoLocking=1 full-upgrade 2>&1)"
+      rc=$?
+      [ "$rc" -eq 0 ] || { printf '%s\n' "$output"; exit 2; }
+      pending="$(grep -E '^Inst ' <<< "$output" || true)"
+      if [ -n "$pending" ]; then
+        echo 'FAIL: pending package updates:'
+        printf '%s\n' "$pending"
+        failed=1
+      else
+        echo 'PASS: no pending package updates.'
+      fi
       held="$(apt-mark showhold 2>/dev/null || true)"
-      [ -n "$held" ] && printf '%s\n' "$held" || echo 'No held packages.'
-      echo
-      echo '=== Reboot state ==='
-      if [ -e /var/run/reboot-required ]; then
-        echo 'reboot_required=yes'
-        [ ! -r /var/run/reboot-required.pkgs ] || sed 's/^/package=/' /var/run/reboot-required.pkgs
+      if [ -n "$held" ]; then
+        echo 'FAIL: held packages:'
+        printf '%s\n' "$held"
+        failed=1
       else
-        echo 'reboot_required=no'
+        echo 'PASS: no held packages.'
       fi
-      metadata="$(find /var/lib/apt/lists -maxdepth 1 -type f -printf '%T@\n' 2>/dev/null | sort -n | tail -1)"
-      [ -z "$metadata" ] || printf 'newest_apt_metadata_epoch=%s\n' "$metadata"
-    review: >-
-      Confirm the APT metadata is recent enough for your patch-management process. Review every pending and held package against approved maintenance windows and exceptions, paying special attention to security updates. Confirm any reboot-required marker has an approved and scheduled reboot. Record accepted deferrals with an owner and expiration date.
+      if [ -e /var/run/reboot-required ]; then
+        echo 'FAIL: a reboot is required.'
+        [ ! -r /var/run/reboot-required.pkgs ] || sed 's/^/package: /' /var/run/reboot-required.pkgs
+        failed=1
+      else
+        echo 'PASS: no reboot is pending.'
+      fi
+      exit "$failed"

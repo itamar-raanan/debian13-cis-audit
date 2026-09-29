@@ -95,26 +95,49 @@ cis_kernel_module_manual_controls:
   profiles:
   - level1_server
   - level1_workstation
-  expected: Manual review completed
-  guidance: Inventory filesystem modules and confirm unused modules are disabled.
-  evidence_description: Supported filesystems, loaded filesystem modules, and active module deny-list/install rules.
+  expected: >-
+    Known-risk filesystem modules from the CIS benchmark (ceph, cifs, exfat, ext, fat, fscache, fuse, gfs2, nfs_common, nfsd, and smbfs_common) are absent, actively used by a mounted filesystem, or both unloaded and disabled with blacklist plus install /bin/false or /bin/true rules.
   audit: !unsafe |
-    echo '=== Kernel and supported filesystems ==='
-    printf 'kernel=%s\n' "$(uname -r)"
-    cat /proc/filesystems 2>/dev/null || echo '/proc/filesystems is unavailable'
-    echo
-    echo '=== Loaded filesystem modules ==='
-    found=0
-    while read -r module _; do
-      path="$(modinfo -F filename "$module" 2>/dev/null || true)"
-      case "$path" in
-        */kernel/fs/*) printf 'module=%s path=%s\n' "$module" "$path"; found=1 ;;
+    for command in findmnt modinfo modprobe lsmod; do
+      command -v "$command" >/dev/null 2>&1 || { echo "$command is unavailable."; exit 2; }
+    done
+    mounted="$(findmnt -Dkerno FSTYPE 2>/dev/null | sort -u)"
+    config="$(modprobe --showconfig 2>/dev/null)"
+    failed=0
+    module_in_use() {
+      case "$1" in
+        ceph) grep -qx ceph <<< "$mounted" ;;
+        cifs|smbfs_common) grep -Eq '^(cifs|smb3)$' <<< "$mounted" ;;
+        exfat) grep -qx exfat <<< "$mounted" ;;
+        ext) grep -Eq '^ext[234]$' <<< "$mounted" ;;
+        fat) grep -Eq '^(fat|msdos|vfat)$' <<< "$mounted" ;;
+        fscache) grep -Eq '^(nfs|nfs4|cifs|smb3|ceph)$' <<< "$mounted" ;;
+        fuse) grep -Eq '^(fuse|fuseblk|fusectl)$' <<< "$mounted" ;;
+        gfs2) grep -qx gfs2 <<< "$mounted" ;;
+        nfs_common) grep -Eq '^(nfs|nfs4)$' <<< "$mounted" ;;
+        nfsd) grep -qx nfsd <<< "$mounted" ;;
+        *) return 1 ;;
       esac
-    done < <(lsmod 2>/dev/null | tail -n +2)
-    [ "$found" -eq 1 ] || echo 'No loadable filesystem modules are currently loaded.'
-    echo
-    echo '=== Filesystem module restrictions ==='
-    restrictions="$(modprobe --showconfig 2>/dev/null | grep -PE '^[[:space:]]*(blacklist|install)[[:space:]]+' | grep -E '(/bin/(true|false)|blacklist)' || true)"
-    [ -n "$restrictions" ] && printf '%s\n' "$restrictions" || echo 'No module blacklist/install restrictions were found.'
-  review: >-
-    Review the supported and loaded filesystem modules against the filesystems required by this host's storage, backup, container, and application workloads. For every filesystem module that is not required, confirm it is not loaded and has both a blacklist rule and an install rule that invokes /bin/false or /bin/true. Document why every remaining loaded filesystem module is required.
+    }
+    for module in ceph cifs exfat ext fat fscache fuse gfs2 nfs_common nfsd smbfs_common; do
+      normalized="${module//-/_}"
+      if ! modinfo "$normalized" >/dev/null 2>&1; then
+        echo "PASS: $module is not installed."
+        continue
+      fi
+      if module_in_use "$module"; then
+        echo "PASS: $module is required by a currently mounted filesystem."
+        continue
+      fi
+      loaded=no blacklist=no install_rule=no
+      lsmod | awk 'NR > 1 {print $1}' | grep -qx "$normalized" && loaded=yes
+      grep -Piq "^[[:space:]]*blacklist[[:space:]]+${normalized//_/[-_]}([[:space:]]|$)" <<< "$config" && blacklist=yes
+      grep -Piq "^[[:space:]]*install[[:space:]]+${normalized//_/[-_]}[[:space:]]+(/usr)?/bin/(true|false)([[:space:]]|$)" <<< "$config" && install_rule=yes
+      if [ "$loaded" = no ] && [ "$blacklist" = yes ] && [ "$install_rule" = yes ]; then
+        echo "PASS: $module is unused, unloaded, blacklisted, and blocked by an install rule."
+      else
+        echo "FAIL: $module is unused: loaded=$loaded blacklist=$blacklist install_rule=$install_rule"
+        failed=1
+      fi
+    done
+    exit "$failed"

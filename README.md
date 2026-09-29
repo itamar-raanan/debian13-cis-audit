@@ -75,19 +75,47 @@ cis_exceptions:
 
 An exception is reported as `EXCLUDED`; it is not counted as a pass.
 
-## Evidence-only review controls
+## Automated policy and evidence-only review controls
 
-The 16 recommendations classified as manual by the benchmark execute read-only
-evidence collectors. A successful collection returns `REVIEW`, not PASS or
-FAIL. The HTML report shows the current configuration, a reproducible Bash
-check, the evidence that should be examined, and control-specific instructions
-under **How to review this evidence**. Evidence-collection failures return
+Nine recommendations that CIS classifies as manual now use explicit local
+PASS/FAIL criteria. The exact criterion appears in the HTML report under
+**Expected state**, so a reviewer can see why the result passed or failed:
+
+- `1.1.1.11`: known-risk filesystem modules are absent, actively used, or
+  unloaded and disabled with both blacklist and install-block rules.
+- `1.2.1.1`: the only active binary APT source is the approved Artifactory
+  `trixie main non-free-firmware` source.
+- `1.2.2.1`: APT metadata is at most 24 hours old, a simulated full upgrade has
+  no pending packages, no packages are held, and no reboot is pending.
+- `5.3.3.2.3`: `pam_pwquality` is active and requires all four character
+  classes through `minclass >= 4` or four negative credit settings; positive
+  credits fail.
+- `5.4.1.2`: `PASS_MIN_DAYS` and every local password-bearing account use a
+  minimum password age of at least one day.
+- `6.1.1.1.2`: existing journal files are root-owned, belong to `root` or
+  `systemd-journal`, and use mode `0640` or more restrictive.
+- `6.1.1.1.3`: effective journald limits match `SystemMaxUse=1G`,
+  `SystemKeepFree=500M`, `RuntimeMaxUse=200M`, `RuntimeKeepFree=50M`, and
+  `MaxFileSec=1month`.
+- `6.2.3.37`: `augenrules --check` succeeds and normalized running watch/syscall
+  rules match `/etc/audit/audit.rules`.
+- `7.1.13`: every SUID/SGID file is owned by an installed Debian package,
+  root-owned, and not writable by group or other.
+
+The remaining seven recommendations (`2.1.23`, `3.1.1`, `6.1.1.2.2`,
+`6.1.2.5`, `6.1.2.6`, `6.1.2.8`, and `6.1.2.11`) retain `REVIEW` because the
+correct result depends on an organization-approved service, network, logging,
+retention, or certificate policy. Their read-only collectors show the current
+state plus control-specific review instructions. Collection failures return
 `ERROR`.
 
-This preserves the benchmark control ID and title without claiming compliance
-when the decision depends on organizational policy. Review decisions, reviewer
-identity, date, and approved exceptions should be recorded through the
-organization's normal governance process.
+> **APT Signed-By note:** the approved source value requested for `1.2.1.1` is
+> `deb http://artifactory.dmz.internal/artifactory/prod-remote-debian-debian trixie main non-free-firmware`.
+> It does not contain a `signed-by=` option even though the CIS control title
+> calls for one. The audit intentionally follows the configured local PASS
+> value. For true Signed-By enforcement, add an approved Artifactory keyring to
+> the source entry and update the expected value in
+> `roles/cis_debian13_audit/vars/package_management.yml`.
 
 ## Audit behavior for mount controls
 
@@ -101,9 +129,9 @@ Milestone 3 adds CIS sections **1.2 Package Management** and **1.3 Mandatory Acc
 - 1.2.2.1
 - 1.3.1.1 through 1.3.1.4
 
-The Signed-By and pending-update recommendations collect the complete current
-APT state and return `REVIEW`. The audit never runs `apt update` or modifies
-package metadata.
+The approved APT-source and pending-update recommendations now return
+deterministic PASS/FAIL results. The audit never runs `apt update`, installs
+packages, or modifies package metadata.
 
 Run the new sections:
 
@@ -260,9 +288,9 @@ This cumulative release completes **Section 5.4 - User Accounts and Environment*
 - `5.4.2.1` through `5.4.2.8` - root and system accounts and environment
 - `5.4.3.1` through `5.4.3.3` - default user environment
 
-Control `5.4.1.2` collects PASS_MIN_DAYS and the minimum age of every
-password-bearing local account, then returns `REVIEW` because the acceptable
-minimum is determined by organizational policy. All checks remain audit-only.
+Control `5.4.1.2` uses a fixed best-practice minimum of one day for
+`PASS_MIN_DAYS` and every password-bearing local account. The expected state is
+shown directly in the report. All checks remain audit-only.
 
 Run the subsection:
 
