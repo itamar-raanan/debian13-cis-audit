@@ -17,7 +17,7 @@
       echo 'pwquality PAM profile already enabled'
       exit 0
     fi
-    pam-auth-update --package --enable pwquality
+    /usr/sbin/pam-auth-update --package --enable pwquality
     echo 'pwquality PAM profile enabled'
   args:
     executable: /bin/bash
@@ -105,7 +105,12 @@
   when: cis_allow_password_age_changes | bool
 
 - name: Configure inactive account lock
-  ansible.builtin.command: "useradd -D -f {{ cis_inactive_days }}"
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/useradd
+      - -D
+      - -f
+      - "{{ cis_inactive_days | string }}"
   changed_when: false
 
 - name: Back up the managed pwquality policy

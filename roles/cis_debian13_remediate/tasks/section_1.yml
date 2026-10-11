@@ -51,7 +51,11 @@
   notify: Update initramfs
 
 - name: Unload approved kernel modules
-  ansible.builtin.command: "modprobe -r {{ item }}"
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/modprobe
+      - -r
+      - "{{ item }}"
   changed_when: false
   loop: "{{ ['cramfs','freevxfs','hfs','hfsplus','jffs2','udf','firewire-core'] + (['usb-storage'] if cis_allow_usb_storage_disable | bool else []) + (['overlay'] if cis_allow_overlay_disable | bool else []) + (cis_unused_filesystem_modules if cis_allow_unused_filesystem_module_disable | bool else []) }}"
   failed_when: false
@@ -175,7 +179,9 @@
     state: started
 
 - name: Enforce loaded AppArmor profiles
-  ansible.builtin.command: aa-enforce /etc/apparmor.d/*
+  ansible.builtin.shell: /usr/sbin/aa-enforce /etc/apparmor.d/*
+  args:
+    executable: /bin/bash
   changed_when: false
   failed_when: false
   when: cis_allow_disruptive | bool

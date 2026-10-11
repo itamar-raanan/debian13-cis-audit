@@ -12,7 +12,7 @@
     owner: root
     group: root
     mode: '0600'
-    validate: 'nft -c -f %s'
+    validate: '/usr/sbin/nft -c -f %s'
   when: cis_allow_firewall_changes | bool
   notify: Restart nftables
 
