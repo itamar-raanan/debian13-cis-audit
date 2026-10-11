@@ -3,6 +3,14 @@
   ansible.builtin.include_tasks: backup.yml
   vars: {cis_backup_source: "{{ cis_modprobe_file }}"}
 
+- name: Validate approved unused filesystem module names
+  ansible.builtin.assert:
+    that:
+      - item is match('^[A-Za-z0-9_+-]+$')
+    fail_msg: "Invalid kernel module name in cis_unused_filesystem_modules: {{ item }}"
+  loop: "{{ cis_unused_filesystem_modules }}"
+  when: cis_allow_unused_filesystem_module_disable | bool
+
 - name: Disable uncommon filesystem kernel modules
   ansible.builtin.blockinfile:
     path: "{{ cis_modprobe_file }}"
@@ -34,14 +42,84 @@
       install overlay /bin/false
       blacklist overlay
       {% endif %}
+      {% if cis_allow_unused_filesystem_module_disable | bool %}
+      {% for module in cis_unused_filesystem_modules %}
+      install {{ module }} /bin/false
+      blacklist {{ module }}
+      {% endfor %}
+      {% endif %}
   notify: Update initramfs
 
 - name: Unload approved kernel modules
   ansible.builtin.command: "modprobe -r {{ item }}"
   changed_when: false
-  loop: "{{ ['cramfs','freevxfs','hfs','hfsplus','jffs2','udf','firewire-core'] + (['usb-storage'] if cis_allow_usb_storage_disable | bool else []) + (['overlay'] if cis_allow_overlay_disable | bool else []) }}"
+  loop: "{{ ['cramfs','freevxfs','hfs','hfsplus','jffs2','udf','firewire-core'] + (['usb-storage'] if cis_allow_usb_storage_disable | bool else []) + (['overlay'] if cis_allow_overlay_disable | bool else []) + (cis_unused_filesystem_modules if cis_allow_unused_filesystem_module_disable | bool else []) }}"
   failed_when: false
   when: cis_allow_disruptive | bool
+
+- name: Find active APT source fragments
+  ansible.builtin.find:
+    paths: /etc/apt/sources.list.d
+    patterns:
+      - '*.list'
+      - '*.sources'
+    file_type: file
+  register: cis_existing_apt_source_fragments
+  when: cis_allow_apt_source_changes | bool
+
+- name: Validate the approved Artifactory APT source
+  ansible.builtin.assert:
+    that:
+      - cis_approved_apt_source == 'deb http://artifactory.dmz.internal/artifactory/prod-remote-debian-debian trixie main non-free-firmware'
+    fail_msg: >-
+      cis_approved_apt_source must match the local PASS policy used by control 1.2.1.1.
+  when: cis_allow_apt_source_changes | bool
+
+- name: Back up the primary APT source file
+  ansible.builtin.include_tasks: backup.yml
+  vars:
+    cis_backup_source: /etc/apt/sources.list
+  when: cis_allow_apt_source_changes | bool
+
+- name: Back up APT source fragments
+  ansible.builtin.include_tasks: backup.yml
+  vars:
+    cis_backup_source: "{{ item.path }}"
+  loop: "{{ cis_existing_apt_source_fragments.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path }}"
+  when: cis_allow_apt_source_changes | bool
+
+- name: Preserve disabled copies of APT source fragments
+  ansible.builtin.copy:
+    src: "{{ item.path }}"
+    dest: "{{ item.path }}.cis-disabled"
+    remote_src: true
+    owner: root
+    group: root
+    mode: preserve
+  loop: "{{ cis_existing_apt_source_fragments.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path }}"
+  when: cis_allow_apt_source_changes | bool
+
+- name: Disable other APT source fragments
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ cis_existing_apt_source_fragments.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path }}"
+  when: cis_allow_apt_source_changes | bool
+
+- name: Configure the approved Artifactory APT source
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list
+    content: "{{ cis_approved_apt_source }}\n"
+    owner: root
+    group: root
+    mode: '0644'
+  when: cis_allow_apt_source_changes | bool
 
 - name: Configure APT weak dependencies
   ansible.builtin.copy:

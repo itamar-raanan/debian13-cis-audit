@@ -351,10 +351,39 @@ cis_allow_firewall_changes: false
 cis_allow_network_changes: false
 cis_allow_service_removal: false
 cis_allow_updates: false
+cis_allow_package_unhold: false
 cis_allow_reboot: false
 cis_allow_usb_storage_disable: false
 cis_allow_overlay_disable: false
+cis_allow_apt_source_changes: false
+cis_allow_unused_filesystem_module_disable: false
+cis_allow_password_age_changes: false
 ```
+
+The additional policy values used by the newly automated controls are:
+
+```yaml
+cis_approved_apt_source: "deb http://artifactory.dmz.internal/artifactory/prod-remote-debian-debian trixie main non-free-firmware"
+cis_unused_filesystem_modules: []       # Explicitly approved module names only
+cis_packages_to_unhold: []              # Explicitly approved package names only
+cis_password_min_days: 1
+cis_journald_system_max_use: 1G
+cis_journald_system_keep_free: 500M
+cis_journald_runtime_max_use: 200M
+cis_journald_runtime_keep_free: 50M
+cis_journald_max_file_sec: 1month
+```
+
+When `cis_allow_apt_source_changes=true`, current APT source files are backed up,
+source fragments are preserved with a `.cis-disabled` suffix, and
+`/etc/apt/sources.list` is replaced with the approved Artifactory value. When
+`cis_allow_unused_filesystem_module_disable=true`, only names explicitly listed
+in `cis_unused_filesystem_modules` are blacklisted; unloading them additionally
+requires `cis_allow_disruptive=true`.
+
+Existing password-bearing accounts are updated only when
+`cis_allow_password_age_changes=true`. Package holds are removed only for names
+in `cis_packages_to_unhold` and only when `cis_allow_package_unhold=true`.
 
 ## Recommended first run
 
@@ -365,6 +394,42 @@ ansible-playbook -i inventory.ini remediate.yml \
   --check --diff
 ```
 
+To preview remediation for the newly automated controls, copy the safe example
+to the gitignored local policy file, review every approval, and run:
+
+```bash
+cp remediation-policy.example.yml remediation-policy.yml
+```
+
+```bash
+ansible-playbook -i inventory.ini remediate.yml \
+  -e @remediation-policy.yml \
+  --check --diff
+```
+
+Example approvals inside `remediation-policy.yml`:
+
+```yaml
+cis_remediation_enabled: true
+cis_remediation_confirm: true
+cis_allow_apt_source_changes: true
+cis_allow_updates: true
+cis_allow_reboot: false
+cis_allow_pam_changes: true
+cis_allow_password_age_changes: true
+cis_allow_unused_filesystem_module_disable: true
+cis_allow_disruptive: false
+cis_unused_filesystem_modules:
+  - ceph
+  - gfs2
+cis_packages_to_unhold: []
+```
+
+Do not add a filesystem module until its storage, backup, container, and
+application dependencies have been reviewed. SUID/SGID files are inventoried
+to `suid-sgid-inventory.txt`; the role never removes their privilege bits
+automatically.
+
 Then run a single section, for example:
 
 ```bash
@@ -374,7 +439,8 @@ ansible-playbook -i inventory.ini remediate.yml \
   --tags cis_section_1
 ```
 
-Backups and the manual-action report are placed below `/var/backups/cis-debian13/<timestamp>/` on each target.
+Backups, the manual-action report, and the SUID/SGID inventory are placed below
+`/var/backups/cis-debian13/<timestamp>/` on each target.
 
 ## Scope
 

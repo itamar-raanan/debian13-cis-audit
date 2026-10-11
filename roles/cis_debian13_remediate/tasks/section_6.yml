@@ -11,6 +11,16 @@
     state: started
   loop: [auditd, rsyslog]
 
+- name: Back up the managed journald configuration
+  ansible.builtin.include_tasks: backup.yml
+  vars:
+    cis_backup_source: /etc/systemd/journald.conf.d/60-cis-debian13.conf
+
+- name: Back up the managed journal tmpfiles configuration
+  ansible.builtin.include_tasks: backup.yml
+  vars:
+    cis_backup_source: "{{ cis_journal_tmpfiles_file }}"
+
 - name: Configure journald persistence and compression
   ansible.builtin.copy:
     dest: /etc/systemd/journald.conf.d/60-cis-debian13.conf
@@ -19,10 +29,56 @@
       Storage=persistent
       Compress=yes
       ForwardToSyslog=yes
+      SystemMaxUse={{ cis_journald_system_max_use }}
+      SystemKeepFree={{ cis_journald_system_keep_free }}
+      RuntimeMaxUse={{ cis_journald_runtime_max_use }}
+      RuntimeKeepFree={{ cis_journald_runtime_keep_free }}
+      MaxFileSec={{ cis_journald_max_file_sec }}
     owner: root
     group: root
     mode: '0644'
   notify: Restart journald
+
+- name: Configure journal file access for future files
+  ansible.builtin.copy:
+    dest: "{{ cis_journal_tmpfiles_file }}"
+    content: |
+      # Managed by the CIS Debian 13 remediation role
+      z /var/log/journal/*/*.journal* 0640 root systemd-journal - -
+      z /run/log/journal/*/*.journal* 0640 root systemd-journal - -
+    owner: root
+    group: root
+    mode: '0644'
+  register: cis_journal_tmpfiles_policy
+
+- name: Find existing journal files
+  ansible.builtin.find:
+    paths:
+      - /var/log/journal
+      - /run/log/journal
+    patterns: '*.journal*'
+    file_type: file
+    recurse: true
+  register: cis_existing_journal_files
+
+- name: Secure existing journal files
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    owner: root
+    group: systemd-journal
+    mode: '0640'
+  loop: "{{ cis_existing_journal_files.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Apply the journal tmpfiles policy
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/systemd-tmpfiles
+      - --create
+      - "{{ cis_journal_tmpfiles_file }}"
+  changed_when: cis_journal_tmpfiles_policy.changed
+  when: cis_journal_tmpfiles_policy.changed
 
 - name: Set auditd.conf controls
   ansible.builtin.lineinfile:
@@ -36,6 +92,12 @@
     - {key: admin_space_left_action, value: halt}
   notify: Restart auditd
 
+- name: Back up the managed audit-rule file
+  ansible.builtin.include_tasks: backup.yml
+  vars:
+    cis_backup_source: "{{ cis_audit_rules_file }}"
+  when: (['level2_server', 'level2_workstation'] | intersect(cis_effective_profiles) | length) > 0
+
 - name: Install baseline audit rules
   ansible.builtin.template:
     src: audit.rules.j2
@@ -44,6 +106,26 @@
     group: root
     mode: '0600'
   notify: Load audit rules
+  when: (['level2_server', 'level2_workstation'] | intersect(cis_effective_profiles) | length) > 0
+
+- name: Apply pending audit-rule handlers before verification
+  ansible.builtin.meta: flush_handlers
+  when: (['level2_server', 'level2_workstation'] | intersect(cis_effective_profiles) | length) > 0
+
+- name: Verify compiled and running audit rules match
+  ansible.builtin.shell: |
+    set -o pipefail
+    export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
+    augenrules --check
+    normalize_rules() {
+      sed -E 's/^[[:space:]]+//;s/[[:space:]]+/ /g;s/[[:space:]]+$//' | grep -E '^(-a|-w)[[:space:]]' | sort -u
+    }
+    disk_rules="$(normalize_rules < /etc/audit/audit.rules)"
+    running_rules="$(auditctl -l | normalize_rules)"
+    diff -u <(printf '%s\n' "$disk_rules") <(printf '%s\n' "$running_rules")
+  args:
+    executable: /bin/bash
+  changed_when: false
   when: (['level2_server', 'level2_workstation'] | intersect(cis_effective_profiles) | length) > 0
 
 - name: Secure log file permissions

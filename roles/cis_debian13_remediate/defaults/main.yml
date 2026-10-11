@@ -24,9 +24,13 @@ cis_allow_firewall_changes: false
 cis_allow_network_changes: false
 cis_allow_service_removal: false
 cis_allow_updates: false
+cis_allow_package_unhold: false
 cis_allow_reboot: false
 cis_allow_usb_storage_disable: false
 cis_allow_overlay_disable: false
+cis_allow_apt_source_changes: false
+cis_allow_unused_filesystem_module_disable: false
+cis_allow_password_age_changes: false
 
 cis_backup_root: /var/backups/cis-debian13
 cis_backup_timestamp: "{{ ansible_date_time.iso8601_basic_short | default('unknown') }}"
@@ -35,12 +39,21 @@ cis_sysctl_file: /etc/sysctl.d/60-cis-debian13.conf
 cis_sshd_dropin: /etc/ssh/sshd_config.d/60-cis-debian13.conf
 cis_modprobe_file: /etc/modprobe.d/60-cis-debian13.conf
 cis_audit_rules_file: /etc/audit/rules.d/60-cis-debian13.rules
+cis_journal_tmpfiles_file: /etc/tmpfiles.d/60-cis-journal.conf
+cis_approved_apt_source: "deb http://artifactory.dmz.internal/artifactory/prod-remote-debian-debian trixie main non-free-firmware"
+cis_unused_filesystem_modules: []
+cis_packages_to_unhold: []
 cis_login_banner: "Authorized uses only. All activity may be monitored and reported."
 cis_chrony_servers: []
 cis_timesyncd_ntp: ""
 cis_password_min_days: 1
 cis_password_max_days: 365
 cis_password_warn_age: 7
+cis_journald_system_max_use: 1G
+cis_journald_system_keep_free: 500M
+cis_journald_runtime_max_use: 200M
+cis_journald_runtime_keep_free: 50M
+cis_journald_max_file_sec: 1month
 cis_umask: "027"
 cis_inactive_days: 30
 cis_sshd_allow_users: []
@@ -76,7 +89,7 @@ cis_remove_client_packages:
 
 cis_manual_controls:
   - id: 1.1.1.11
-    reason: Requires site-approved review of filesystem modules and dependencies.
+    reason: Only modules explicitly listed in cis_unused_filesystem_modules are disabled; dependency approval remains a site decision.
   - id: 1.1.2
     reason: Creating or moving partitions requires storage design, backup and maintenance windows.
   - id: 1.4.1
@@ -91,3 +104,5 @@ cis_manual_controls:
     reason: Audit rules must be aligned with local paths, identities and retention requirements.
   - id: 7.2
     reason: Account cleanup requires ownership and business approval.
+  - id: 7.1.13
+    reason: SUID/SGID files are inventoried for review; privilege bits are never removed automatically.

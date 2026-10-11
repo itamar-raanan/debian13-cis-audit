@@ -1,2 +1,5 @@
 # Generated CIS audit reports may contain host-specific evidence.
 reports/
+
+# Host-specific remediation approvals should remain local.
+remediation-policy.yml

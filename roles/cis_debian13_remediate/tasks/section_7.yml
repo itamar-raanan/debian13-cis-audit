@@ -44,3 +44,35 @@
     owner: root
     group: root
     mode: '0600'
+
+- name: Collect SUID and SGID review inventory
+  ansible.builtin.shell: |
+    set -o pipefail
+    export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
+    found=0
+    while read -r target fstype; do
+      case "$fstype" in
+        ext2|ext3|ext4|xfs|btrfs|zfs|f2fs|jfs|reiserfs|bcachefs|overlay)
+          target="${target//\\040/ }"
+          while IFS= read -r -d '' file; do
+            package="$(dpkg-query -S "$file" 2>/dev/null | head -1 | cut -d: -f1 || true)"
+            stat -Lc 'path=%n mode=%a owner=%U group=%G' "$file"
+            printf 'package=%s\n\n' "${package:-unowned}"
+            found=1
+          done < <(find "$target" -xdev -type f \( -perm -4000 -o -perm -2000 \) -print0 2>/dev/null)
+          ;;
+      esac
+    done < <(findmnt -rn -o TARGET,FSTYPE)
+    [ "$found" -eq 1 ] || echo 'No SUID or SGID regular files were found on local filesystems.'
+  args:
+    executable: /bin/bash
+  register: cis_suid_sgid_inventory
+  changed_when: false
+
+- name: Write SUID and SGID review inventory
+  ansible.builtin.copy:
+    dest: "{{ cis_backup_dir }}/suid-sgid-inventory.txt"
+    content: "{{ cis_suid_sgid_inventory.stdout }}\n"
+    owner: root
+    group: root
+    mode: '0600'

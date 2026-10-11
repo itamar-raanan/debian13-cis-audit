@@ -4,6 +4,29 @@
     name: [sudo, libpam-pwquality, libpam-modules]
     state: present
 
+- name: Back up common-password before enabling pwquality
+  ansible.builtin.include_tasks: backup.yml
+  vars:
+    cis_backup_source: /etc/pam.d/common-password
+  when: cis_allow_pam_changes | bool
+
+- name: Enable the Debian pwquality PAM profile
+  ansible.builtin.shell: |
+    set -o pipefail
+    if grep -Pqs '^[[:space:]]*password[[:space:]]+[^#]+[[:space:]]+pam_pwquality\.so\b' /etc/pam.d/common-password; then
+      echo 'pwquality PAM profile already enabled'
+      exit 0
+    fi
+    pam-auth-update --package --enable pwquality
+    echo 'pwquality PAM profile enabled'
+  args:
+    executable: /bin/bash
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+  register: cis_pwquality_pam_profile
+  changed_when: "'profile enabled' in cis_pwquality_pam_profile.stdout"
+  when: cis_allow_pam_changes | bool
+
 - name: Configure sudo hardening
   ansible.builtin.copy:
     dest: /etc/sudoers.d/60-cis-debian13
@@ -15,6 +38,11 @@
     group: root
     mode: '0440'
     validate: 'visudo -cf %s'
+
+- name: Back up login.defs
+  ansible.builtin.include_tasks: backup.yml
+  vars:
+    cis_backup_source: /etc/login.defs
 
 - name: Back up SSH configuration
   ansible.builtin.include_tasks: backup.yml
@@ -43,9 +71,48 @@
     - {key: PASS_WARN_AGE, value: "{{ cis_password_warn_age }}"}
     - {key: UMASK, value: "{{ cis_umask }}"}
 
+- name: Validate the approved minimum password age
+  ansible.builtin.assert:
+    that:
+      - cis_password_min_days | int >= 1
+      - (cis_password_min_days | string) is match('^[0-9]+$')
+    fail_msg: cis_password_min_days must be a positive whole number.
+  when: cis_allow_password_age_changes | bool
+
+- name: Find password-bearing accounts below the approved minimum age
+  ansible.builtin.shell: |
+    awk -F: -v minimum="$CIS_MIN_DAYS" \
+      '($2 ~ /^!?\$.+\$/ && ($4 == "" || $4 + 0 < minimum)) {print $1}' /etc/shadow
+  args:
+    executable: /bin/bash
+  environment:
+    CIS_MIN_DAYS: "{{ cis_password_min_days | string }}"
+  register: cis_password_age_accounts
+  changed_when: false
+  when: cis_allow_password_age_changes | bool
+
+- name: Apply minimum password age to existing password-bearing accounts
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/chage
+      - -m
+      - "{{ cis_password_min_days | string }}"
+      - "{{ item }}"
+  loop: "{{ cis_password_age_accounts.stdout_lines | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+  changed_when: true
+  when: cis_allow_password_age_changes | bool
+
 - name: Configure inactive account lock
   ansible.builtin.command: "useradd -D -f {{ cis_inactive_days }}"
   changed_when: false
+
+- name: Back up the managed pwquality policy
+  ansible.builtin.include_tasks: backup.yml
+  vars:
+    cis_backup_source: /etc/security/pwquality.conf.d/60-cis-debian13.conf
+  when: cis_allow_pam_changes | bool
 
 - name: Configure pwquality policy
   ansible.builtin.copy:
