@@ -4,6 +4,18 @@
     name: [sudo, libpam-pwquality, libpam-modules]
     state: present
 
+- name: Ensure authentication configuration directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - /etc/sudoers.d
+    - /etc/ssh/sshd_config.d
+    - /etc/security/pwquality.conf.d
+
 - name: Back up common-password before enabling pwquality
   ansible.builtin.include_tasks: backup.yml
   vars:

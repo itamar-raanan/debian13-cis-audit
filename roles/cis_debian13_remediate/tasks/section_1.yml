@@ -1,4 +1,20 @@
 ---
+- name: Ensure Section 1 configuration directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - /etc/modprobe.d
+    - /etc/apt/apt.conf.d
+    - /etc/apt/sources.list.d
+    - /etc/apt/auth.conf.d
+    - /etc/apt/trusted.gpg.d
+    - /usr/share/keyrings
+    - /etc/sysctl.d
+
 - name: Back up modprobe configuration target
   ansible.builtin.include_tasks: backup.yml
   vars: {cis_backup_source: "{{ cis_modprobe_file }}"}
