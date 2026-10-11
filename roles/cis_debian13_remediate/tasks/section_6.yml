@@ -11,6 +11,18 @@
     state: started
   loop: [auditd, rsyslog]
 
+- name: Ensure logging and auditing drop-in directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - /etc/systemd/journald.conf.d
+    - /etc/tmpfiles.d
+    - /etc/audit/rules.d
+
 - name: Back up the managed journald configuration
   ansible.builtin.include_tasks: backup.yml
   vars:
