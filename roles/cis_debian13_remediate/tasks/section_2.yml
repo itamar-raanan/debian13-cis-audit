@@ -2,8 +2,30 @@
 - name: Optionally update installed packages
   ansible.builtin.apt:
     update_cache: true
-    upgrade: safe
+    upgrade: dist
   when: cis_allow_updates | bool
+
+- name: Unhold explicitly approved packages
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: install
+  loop: "{{ cis_packages_to_unhold }}"
+  when: cis_allow_package_unhold | bool
+
+- name: Check whether package updates require a reboot
+  ansible.builtin.stat:
+    path: /var/run/reboot-required
+  register: cis_reboot_required
+  when: cis_allow_updates | bool
+
+- name: Reboot after package updates when explicitly approved
+  ansible.builtin.reboot:
+    msg: Reboot initiated by the CIS Debian 13 remediation role after package updates.
+    reboot_timeout: 900
+  when:
+    - cis_allow_updates | bool
+    - cis_allow_reboot | bool
+    - cis_reboot_required.stat.exists | default(false)
 
 - name: Disable unnecessary server services
   ansible.builtin.systemd_service:
