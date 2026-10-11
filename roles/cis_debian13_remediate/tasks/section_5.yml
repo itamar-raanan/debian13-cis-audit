@@ -37,7 +37,7 @@
     owner: root
     group: root
     mode: '0440'
-    validate: 'visudo -cf %s'
+    validate: '/usr/sbin/visudo -cf %s'
 
 - name: Back up login.defs
   ansible.builtin.include_tasks: backup.yml
