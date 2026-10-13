@@ -26,7 +26,7 @@ cis_allow_aide_changes: false
 cis_allow_log_permission_changes: false
 cis_allow_remote_logging_changes: false
 
-cis_approved_apt_source: "deb http://artifactory.dmz.internal/artifactory/prod-remote-debian-debian trixie main non-free-firmware"
+cis_approved_apt_source: ""
 cis_packages_to_unhold: []
 
 # Add only modules confirmed unnecessary for this host and its dependencies.
