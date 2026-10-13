@@ -1,0 +1,79 @@
+---
+cis_profile: level2_server
+cis_logging_mode: rsyslog
+cis_remediation_enabled: true
+cis_remediation_confirm: true
+
+# Enable only after reviewing the check-mode diff and maintaining console access.
+cis_allow_apt_source_changes: false
+cis_allow_updates: false
+cis_allow_package_unhold: false
+cis_allow_reboot: false
+cis_allow_pam_changes: false
+cis_allow_password_age_changes: false
+cis_allow_unused_filesystem_module_disable: false
+cis_allow_usb_storage_disable: false
+cis_allow_overlay_disable: false
+cis_allow_squashfs_disable: false
+cis_allow_disruptive: false
+cis_allow_partition_changes: false
+cis_allow_bootloader_changes: false
+cis_allow_ssh_changes: false
+cis_allow_firewall_changes: false
+cis_allow_network_changes: false
+cis_allow_service_removal: false
+cis_allow_aide_changes: false
+cis_allow_log_permission_changes: false
+cis_allow_remote_logging_changes: false
+
+cis_approved_apt_source: "deb http://artifactory.dmz.internal/artifactory/prod-remote-debian-debian trixie main non-free-firmware"
+cis_packages_to_unhold: []
+
+# Add only modules confirmed unnecessary for this host and its dependencies.
+cis_unused_filesystem_modules: []
+
+cis_password_min_days: 1
+cis_password_max_days: 365
+cis_password_warn_age: 7
+cis_inactive_days: 30
+cis_password_history: 24
+cis_shell_timeout: 900
+cis_audit_backlog_limit: 8192
+cis_audit_immutable: false
+
+# Required only when the matching safety gate is enabled. Store secrets with
+# Ansible Vault, never in a committed policy file.
+cis_grub_superuser: ""
+cis_grub_pbkdf2_hash: ""
+
+# Explicit storage definitions only. The role never guesses devices.
+# cis_managed_mounts:
+#   - path: /tmp
+#     src: tmpfs
+#     fstype: tmpfs
+#     opts: defaults,rw,nosuid,nodev,noexec,relatime,size=2G
+cis_managed_mounts: []
+
+cis_ufw_allowed_tcp_ports: [22]
+cis_ufw_allowed_udp_ports: []
+
+# Define at least one list before enabling cis_allow_ssh_changes.
+cis_sshd_allow_users: []
+cis_sshd_allow_groups: []
+cis_sshd_deny_users: []
+cis_sshd_deny_groups: []
+
+cis_journal_upload_url: ""
+cis_journal_upload_server_key_file: ""
+cis_journal_upload_server_certificate_file: ""
+cis_journal_upload_trusted_certificate_file: ""
+cis_rsyslog_remote_host: ""
+cis_rsyslog_remote_port: 6514
+cis_rsyslog_ca_file: ""
+cis_rsyslog_certificate_file: ""
+cis_rsyslog_key_file: ""
+cis_journald_system_max_use: 1G
+cis_journald_system_keep_free: 500M
+cis_journald_runtime_max_use: 200M
+cis_journald_runtime_keep_free: 50M
+cis_journald_max_file_sec: 1month

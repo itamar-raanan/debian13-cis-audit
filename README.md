@@ -20,6 +20,12 @@ The role performs no remediation. Audit commands use `changed_when: false` and f
 - `findmnt`, `systemctl`, `modprobe`, and `lsmod` on the target
 - Privilege escalation to root
 
+Install the required Ansible collection before using storage remediation:
+
+```bash
+ansible-galaxy collection install -r requirements.yml
+```
+
 ## Run
 
 ```bash
@@ -329,6 +335,9 @@ This archive now includes `roles/cis_debian13_remediate` and two playbooks:
 - `remediate.yml` — remediation only
 - `site.yml` — audit, remediation, then post-remediation audit
 
+See [REMEDIATION_COVERAGE.md](REMEDIATION_COVERAGE.md) for the implementation
+and safety-gate mapping by control area.
+
 ## Safety model
 
 The role refuses to change a host unless both confirmation variables are true:
@@ -338,6 +347,20 @@ ansible-playbook -i inventory.ini remediate.yml \
   -e cis_remediation_enabled=true \
   -e cis_remediation_confirm=true
 ```
+
+For a Level 2 server, keep the remediation and audit profiles identical:
+
+```bash
+cp remediation-policy.example.yml remediation-policy.yml
+ansible-playbook -i inventory.ini remediate.yml -e @remediation-policy.yml --check --diff
+ansible-playbook -i inventory.ini remediate.yml -e @remediation-policy.yml
+ansible-playbook -i inventory.ini audit.yml -e cis_profile=level2_server -e cis_logging_mode=rsyslog
+```
+
+`remediation-policy.yml` is ignored by Git. Use Ansible Vault for GRUB hashes,
+private-key paths, or other sensitive organization policy. Partition, firewall,
+PAM, SSH, network, immutable audit, and remote logging changes remain explicit
+opt-ins and are never inferred from the target.
 
 Potentially disruptive areas are disabled by default. Enable only after reviewing the target and maintaining console access:
 
@@ -355,9 +378,13 @@ cis_allow_package_unhold: false
 cis_allow_reboot: false
 cis_allow_usb_storage_disable: false
 cis_allow_overlay_disable: false
+cis_allow_squashfs_disable: false
 cis_allow_apt_source_changes: false
 cis_allow_unused_filesystem_module_disable: false
 cis_allow_password_age_changes: false
+cis_allow_aide_changes: false
+cis_allow_log_permission_changes: false
+cis_allow_remote_logging_changes: false
 ```
 
 The additional policy values used by the newly automated controls are:

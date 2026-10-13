@@ -3,7 +3,11 @@
   ansible.builtin.assert:
     that:
       - cis_profile in cis_valid_profiles
-    fail_msg: "Unsupported cis_profile={{ cis_profile }}. Valid values: {{ cis_valid_profiles | join(', ') }}"
+      - cis_logging_mode in ['journald', 'rsyslog']
+    fail_msg: >-
+      Unsupported policy selection. cis_profile={{ cis_profile }} must be one of
+      {{ cis_valid_profiles | join(', ') }}, and cis_logging_mode={{ cis_logging_mode }}
+      must be journald or rsyslog.
   changed_when: false
 
 - name: Validate target operating system

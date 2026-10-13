@@ -7,6 +7,7 @@ cis_benchmark:
   target_major_version: "13"
 
 cis_profile: level1_server
+cis_logging_mode: rsyslog
 
 # CIS Level 2 is cumulative: it includes the matching Level 1 baseline.
 cis_profile_inheritance:

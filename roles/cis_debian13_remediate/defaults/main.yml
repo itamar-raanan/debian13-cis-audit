@@ -1,5 +1,6 @@
 ---
 cis_profile: level1_server
+cis_logging_mode: rsyslog
 
 
 # CIS Level 2 is cumulative: it includes the matching Level 1 baseline.
@@ -28,9 +29,13 @@ cis_allow_package_unhold: false
 cis_allow_reboot: false
 cis_allow_usb_storage_disable: false
 cis_allow_overlay_disable: false
+cis_allow_squashfs_disable: false
 cis_allow_apt_source_changes: false
 cis_allow_unused_filesystem_module_disable: false
 cis_allow_password_age_changes: false
+cis_allow_aide_changes: false
+cis_allow_log_permission_changes: false
+cis_allow_remote_logging_changes: false
 
 cis_backup_root: /var/backups/cis-debian13
 cis_backup_timestamp: "{{ ansible_date_time.iso8601_basic_short | default('unknown') }}"
@@ -38,7 +43,7 @@ cis_backup_dir: "{{ cis_backup_root }}/{{ cis_backup_timestamp }}"
 cis_sysctl_file: /etc/sysctl.d/60-cis-debian13.conf
 cis_sshd_dropin: /etc/ssh/sshd_config.d/60-cis-debian13.conf
 cis_modprobe_file: /etc/modprobe.d/60-cis-debian13.conf
-cis_audit_rules_file: /etc/audit/rules.d/60-cis-debian13.rules
+cis_audit_rules_file: /etc/audit/rules.d/99-cis-debian13.rules
 cis_journal_tmpfiles_file: /etc/tmpfiles.d/60-cis-journal.conf
 cis_approved_apt_source: "deb http://artifactory.dmz.internal/artifactory/prod-remote-debian-debian trixie main non-free-firmware"
 cis_unused_filesystem_modules: []
@@ -56,6 +61,27 @@ cis_journald_runtime_keep_free: 50M
 cis_journald_max_file_sec: 1month
 cis_umask: "027"
 cis_inactive_days: 30
+cis_password_history: 24
+cis_shell_timeout: 900
+cis_faillock_deny: 5
+cis_faillock_unlock_time: 900
+cis_audit_backlog_limit: 8192
+cis_audit_immutable: false
+cis_grub_superuser: ""
+cis_grub_pbkdf2_hash: ""
+cis_managed_mounts: []
+cis_ufw_allowed_tcp_ports:
+  - 22
+cis_ufw_allowed_udp_ports: []
+cis_journal_upload_url: ""
+cis_journal_upload_server_key_file: ""
+cis_journal_upload_server_certificate_file: ""
+cis_journal_upload_trusted_certificate_file: ""
+cis_rsyslog_remote_host: ""
+cis_rsyslog_remote_port: 6514
+cis_rsyslog_ca_file: ""
+cis_rsyslog_certificate_file: ""
+cis_rsyslog_key_file: ""
 cis_sshd_allow_users: []
 cis_sshd_allow_groups: []
 cis_sshd_deny_users: []
@@ -91,18 +117,22 @@ cis_manual_controls:
   - id: 1.1.1.11
     reason: Only modules explicitly listed in cis_unused_filesystem_modules are disabled; dependency approval remains a site decision.
   - id: 1.1.2
-    reason: Creating or moving partitions requires storage design, backup and maintenance windows.
+    reason: Mounts are changed only when explicitly described in cis_managed_mounts; creating or moving storage still requires an approved design and maintenance window.
   - id: 1.4.1
-    reason: GRUB password and break-glass procedure require organization-specific secrets.
-  - id: 1.6
-    reason: Cryptographic policy depends on approved organizational policy.
-  - id: 2.1.1
-    reason: Time sources must be supplied by the organization.
-  - id: 4.1
-    reason: Firewall policy must be approved to avoid loss of connectivity.
-  - id: 6.3
-    reason: Audit rules must be aligned with local paths, identities and retention requirements.
-  - id: 7.2
-    reason: Account cleanup requires ownership and business approval.
+    reason: GRUB remediation requires an organization-provided PBKDF2 hash and tested break-glass procedure.
+  - id: 2.1.23
+    reason: Listening services must be compared with the organization-approved service inventory.
+  - id: 3.1.1
+    reason: IPv6 state is collected for review because enablement depends on the network design.
+  - id: 6.1.1.2.2
+    reason: Journal-upload endpoints and certificate identity require organization approval.
+  - id: 6.1.2.5
+    reason: Rsyslog selectors and destinations require review against the logging standard.
+  - id: 6.1.2.6
+    reason: The remote logging destination must be organization-approved.
+  - id: 6.1.2.8
+    reason: Log retention and rotation periods depend on operational and legal requirements.
+  - id: 6.1.2.11
+    reason: CA certificates must be verified against the organization PKI.
   - id: 7.1.13
     reason: SUID/SGID files are inventoried for review; privilege bits are never removed automatically.

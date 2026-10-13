@@ -8,6 +8,10 @@
     mode: '0644'
     marker: "# {mark} CIS NETWORK MODULES"
     block: |
+      install atm /bin/false
+      blacklist atm
+      install can /bin/false
+      blacklist can
       install dccp /bin/false
       blacklist dccp
       install sctp /bin/false
@@ -21,6 +25,17 @@
     - cis_allow_network_changes | bool
     - (['level2_server', 'level2_workstation'] | intersect(cis_effective_profiles) | length) > 0
 
+- name: Unload approved uncommon network protocol modules
+  ansible.builtin.command:
+    argv: [/usr/sbin/modprobe, -r, "{{ item }}"]
+  loop: [atm, can, dccp, rds, sctp, tipc]
+  changed_when: false
+  failed_when: false
+  when:
+    - cis_allow_network_changes | bool
+    - cis_allow_disruptive | bool
+    - (['level2_server', 'level2_workstation'] | intersect(cis_effective_profiles) | length) > 0
+
 - name: Configure network kernel parameters
   ansible.builtin.blockinfile:
     path: "{{ cis_sysctl_file }}"
@@ -32,6 +47,8 @@
     block: |
       net.ipv4.ip_forward = 0
       net.ipv6.conf.all.forwarding = 0
+      net.ipv4.conf.all.forwarding = 0
+      net.ipv4.conf.default.forwarding = 0
       net.ipv4.conf.all.send_redirects = 0
       net.ipv4.conf.default.send_redirects = 0
       net.ipv4.conf.all.accept_source_route = 0

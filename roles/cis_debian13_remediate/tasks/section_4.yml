@@ -1,24 +1,69 @@
 ---
-- name: Install nftables
+- name: Validate the UFW policy before firewall changes
+  ansible.builtin.assert:
+    that:
+      - cis_ufw_allowed_tcp_ports | length > 0
+    fail_msg: Define valid approved TCP/UDP ports before enabling firewall remediation.
+  when: cis_allow_firewall_changes | bool
+
+- name: Validate each approved UFW port
+  ansible.builtin.assert:
+    that:
+      - (item | string) is match('^[0-9]+$')
+      - item | int >= 1
+      - item | int <= 65535
+    fail_msg: "Invalid approved firewall port: {{ item }}"
+  loop: "{{ cis_ufw_allowed_tcp_ports + cis_ufw_allowed_udp_ports }}"
+  when: cis_allow_firewall_changes | bool
+
+- name: Install UFW
   ansible.builtin.apt:
-    name: nftables
+    name: ufw
     state: present
   when: cis_allow_firewall_changes | bool
 
-- name: Configure conservative nftables host firewall
-  ansible.builtin.template:
-    src: nftables.conf.j2
-    dest: /etc/nftables.conf
-    owner: root
-    group: root
-    mode: '0600'
-    validate: '/usr/sbin/nft -c -f %s'
+- name: Configure UFW default policies
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/ufw
+      - default
+      - "{{ item.policy }}"
+      - "{{ item.direction }}"
+  loop:
+    - {policy: deny, direction: incoming}
+    - {policy: allow, direction: outgoing}
+    - {policy: deny, direction: routed}
+  register: cis_ufw_defaults
+  changed_when: "'Default ' in cis_ufw_defaults.stdout"
   when: cis_allow_firewall_changes | bool
-  notify: Restart nftables
 
-- name: Enable nftables
+- name: Allow approved TCP ports through UFW
+  ansible.builtin.command:
+    argv: [/usr/sbin/ufw, allow, "{{ item }}/tcp"]
+  loop: "{{ cis_ufw_allowed_tcp_ports }}"
+  register: cis_ufw_tcp_rules
+  changed_when: "'Skipping adding existing rule' not in cis_ufw_tcp_rules.stdout"
+  when: cis_allow_firewall_changes | bool
+
+- name: Allow approved UDP ports through UFW
+  ansible.builtin.command:
+    argv: [/usr/sbin/ufw, allow, "{{ item }}/udp"]
+  loop: "{{ cis_ufw_allowed_udp_ports }}"
+  register: cis_ufw_udp_rules
+  changed_when: "'Skipping adding existing rule' not in cis_ufw_udp_rules.stdout"
+  when: cis_allow_firewall_changes | bool
+
+- name: Disable nftables immediately before enabling UFW
   ansible.builtin.systemd_service:
     name: nftables
-    enabled: true
-    state: started
+    enabled: false
+    state: stopped
+  failed_when: false
+  when: cis_allow_firewall_changes | bool
+
+- name: Enable UFW after approved rules are installed
+  ansible.builtin.command:
+    argv: [/usr/sbin/ufw, --force, enable]
+  register: cis_ufw_enable
+  changed_when: "'already enabled' not in cis_ufw_enable.stdout"
   when: cis_allow_firewall_changes | bool
