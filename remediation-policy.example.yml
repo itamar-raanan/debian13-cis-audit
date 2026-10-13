@@ -18,6 +18,7 @@ cis_allow_squashfs_disable: false
 cis_allow_disruptive: false
 cis_allow_partition_changes: false
 cis_allow_bootloader_changes: false
+cis_allow_grub_password_changes: false
 cis_allow_ssh_changes: false
 cis_allow_firewall_changes: false
 cis_allow_network_changes: false
@@ -41,8 +42,8 @@ cis_shell_timeout: 900
 cis_audit_backlog_limit: 8192
 cis_audit_immutable: false
 
-# Required only when the matching safety gate is enabled. Store secrets with
-# Ansible Vault, never in a committed policy file.
+# Required only when cis_allow_grub_password_changes is enabled. Store secrets
+# with Ansible Vault, never in a committed policy file.
 cis_grub_superuser: ""
 cis_grub_pbkdf2_hash: ""
 

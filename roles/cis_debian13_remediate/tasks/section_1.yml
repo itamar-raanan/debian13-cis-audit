@@ -286,8 +286,8 @@
       - cis_grub_pbkdf2_hash is match('^grub\\.pbkdf2\\.sha512\\.')
     fail_msg: >-
       Set cis_grub_superuser and a grub.pbkdf2.sha512 hash in
-      cis_grub_pbkdf2_hash before enabling bootloader remediation.
-  when: cis_allow_bootloader_changes | bool
+      cis_grub_pbkdf2_hash before enabling GRUB password remediation.
+  when: cis_allow_grub_password_changes | bool
 
 - name: Configure the GRUB superuser and password hash
   ansible.builtin.copy:
@@ -301,7 +301,7 @@
     owner: root
     group: root
     mode: '0700'
-  when: cis_allow_bootloader_changes | bool
+  when: cis_allow_grub_password_changes | bool
   notify: Update GRUB
 
 - name: Configure legal banners

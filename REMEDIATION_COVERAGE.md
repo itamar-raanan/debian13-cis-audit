@@ -9,7 +9,7 @@ silently covered merely because the audit has a remediation paragraph.
 | 1.1.2 mounts | Automated only for explicit device/source definitions | `cis_allow_partition_changes`, `cis_managed_mounts` |
 | 1.2 APT | Permissions and weak dependencies automatic; source and upgrades gated | `cis_allow_apt_source_changes`, `cis_allow_updates` |
 | 1.3 AppArmor | Package/service automatic; enforcing loaded profiles gated | `cis_allow_disruptive` |
-| 1.4 GRUB | Permissions automatic; password and kernel audit arguments gated | `cis_allow_bootloader_changes` plus PBKDF2 policy |
+| 1.4 GRUB | Permissions automatic; kernel arguments and password changes are independently gated | `cis_allow_bootloader_changes`; `cis_allow_grub_password_changes` plus PBKDF2 policy |
 | 1.5 process hardening | Sysctl and core limits automated | none |
 | 1.6 banners | Automated | none |
 | 2 services and clients | Explicit removal lists only | `cis_allow_service_removal` |
