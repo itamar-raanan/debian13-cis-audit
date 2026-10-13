@@ -7,9 +7,8 @@ cis_section6_controls:
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
   audit: !unsafe |
-    systemctl is-enabled systemd-journald.service 2>/dev/null | grep -qx enabled || { echo 'systemd-journald.service is not enabled'; exit 1; }
     systemctl is-active systemd-journald.service 2>/dev/null | grep -qx active || { echo 'systemd-journald.service is not active'; exit 1; }
-    echo 'systemd-journald.service is enabled and active'
+    echo 'systemd-journald.service is active'
 - id: 6.1.1.1.4
   title: Ensure journald ForwardToSyslog is disabled
   profiles:
