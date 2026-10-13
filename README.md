@@ -368,6 +368,7 @@ Potentially disruptive areas are disabled by default. Enable only after reviewin
 cis_allow_disruptive: false
 cis_allow_partition_changes: false
 cis_allow_bootloader_changes: false
+cis_allow_grub_password_changes: false
 cis_allow_pam_changes: false
 cis_allow_ssh_changes: false
 cis_allow_firewall_changes: false

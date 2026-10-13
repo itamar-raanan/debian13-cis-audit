@@ -14,6 +14,7 @@
     exit 0
   args:
     executable: /bin/bash
+  become: false
   register: cis_module_available
   changed_when: false
   failed_when: false
@@ -22,6 +23,7 @@
 
 - name: "{{ cis_control.id }} | Check loaded module"
   ansible.builtin.command: /usr/sbin/lsmod
+  become: false
   register: cis_lsmod
   changed_when: false
   failed_when: false
@@ -31,6 +33,7 @@
 
 - name: "{{ cis_control.id }} | Read modprobe configuration"
   ansible.builtin.command: /usr/sbin/modprobe --showconfig
+  become: false
   register: cis_modprobe_config
   changed_when: false
   failed_when: false
@@ -48,12 +51,15 @@
     cis_module_blacklisted: >-
       {{
         (cis_module_available.stdout | length == 0) or
-        ((cis_modprobe_config.stdout_lines | default([]) | select('match', '^blacklist\\s+' ~ cis_control.module ~ '(\\s|$)') | list | length) > 0)
+        (((cis_modprobe_config.stdout | default('')) |
+          regex_search('(?m)^[ \\t]*blacklist[ \\t]+' ~ cis_control.module ~ '([ \\t]|$)')) is not none)
       }}
     cis_module_install_disabled: >-
       {{
         (cis_module_available.stdout | length == 0) or
-        ((cis_modprobe_config.stdout_lines | default([]) | select('match', '^install\\s+' ~ cis_control.module ~ '\\s+/bin/(false|true)(\\s|$)') | list | length) > 0)
+        (((cis_modprobe_config.stdout | default('')) |
+          regex_search('(?m)^[ \\t]*install[ \\t]+' ~ cis_control.module ~
+                       '[ \\t]+(/usr)?/bin/(false|true)([ \\t]|$)')) is not none)
       }}
   changed_when: false
   tags:
@@ -100,7 +106,8 @@
           'evidence': {
             'availability': cis_module_available.stdout_lines | default([]),
             'loaded_lines': cis_lsmod.stdout_lines | default([]) | select('match', '^' ~ (cis_control.loaded_name | default(cis_control.module)) ~ '\\s') | list,
-            'modprobe_lines': cis_modprobe_config.stdout_lines | default([]) | select('search', cis_control.module) | list
+            'modprobe_lines': cis_modprobe_config.stdout_lines | default([]) |
+              select('match', '^[ \\t]*(blacklist|install)[ \\t]+' ~ cis_control.module ~ '([ \\t]|$)') | list
           }
         }]
       }}
