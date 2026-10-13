@@ -148,7 +148,7 @@ cis_user_account_controls:
       value="$(HOME=/root USER=root LOGNAME=root "$root_shell" -lc 'umask' 2>/dev/null | tail -1)"
       [[ "$value" =~ ^0?[0-7]{3}$ ]] || { echo "Unable to determine root umask: ${value:-unset}"; exit 2; }
       numeric=$((8#$value))
-      [ $((numeric & 0027)) -eq 0027 ] || { echo "Root umask is too permissive: $value"; exit 1; }
+      [ $((numeric & 0027)) -eq $((0027)) ] || { echo "Root umask is too permissive: $value"; exit 1; }
       echo "Root effective umask=$value"
 
   - id: "5.4.2.7"
@@ -209,7 +209,7 @@ cis_user_account_controls:
       login_umask="$(awk '$1 == "UMASK" {print $2}' /etc/login.defs | tail -1)"
       [[ "$login_umask" =~ ^0?[0-7]{3}$ ]] || { echo "UMASK in login.defs is invalid or missing: ${login_umask:-unset}"; fail=1; }
       if [[ "$login_umask" =~ ^0?[0-7]{3}$ ]]; then
-        numeric=$((8#$login_umask)); [ $((numeric & 0027)) -eq 0027 ] || { echo "login.defs UMASK is too permissive: $login_umask"; fail=1; }
+        numeric=$((8#$login_umask)); [ $((numeric & 0027)) -eq $((0027)) ] || { echo "login.defs UMASK is too permissive: $login_umask"; fail=1; }
       fi
       bad="$(grep -PHsi '^\s*umask\s+(000|002|007|022)\b' /etc/profile /etc/bash.bashrc /etc/profile.d/*.sh 2>/dev/null || true)"
       [ -z "$bad" ] || { printf '%s\n' "$bad"; fail=1; }

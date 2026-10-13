@@ -5,6 +5,8 @@
     {{ cis_control.audit }}
   args:
     executable: /bin/bash
+  environment:
+    PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
   register: cis_shell_audit
   changed_when: false
   failed_when: false
