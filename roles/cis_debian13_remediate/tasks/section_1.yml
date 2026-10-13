@@ -14,6 +14,30 @@
     - /etc/apt/trusted.gpg.d
     - /usr/share/keyrings
     - /etc/sysctl.d
+    - /etc/default/grub.d
+
+- name: Validate explicitly managed CIS mount definitions
+  ansible.builtin.assert:
+    that:
+      - item.path in ['/tmp', '/dev/shm', '/home', '/var', '/var/tmp', '/var/log', '/var/log/audit']
+      - item.src | default('') | length > 0
+      - item.fstype | default('') | length > 0
+      - item.opts | default('') | length > 0
+    fail_msg: Each managed mount requires an approved path, source, filesystem type and options.
+  loop: "{{ cis_managed_mounts }}"
+  when: cis_allow_partition_changes | bool
+
+- name: Configure explicitly approved CIS mounts
+  ansible.posix.mount:
+    path: "{{ item.path }}"
+    src: "{{ item.src }}"
+    fstype: "{{ item.fstype }}"
+    opts: "{{ item.opts }}"
+    dump: "{{ item.dump | default('0') }}"
+    passno: "{{ item.passno | default('0') }}"
+    state: mounted
+  loop: "{{ cis_managed_mounts }}"
+  when: cis_allow_partition_changes | bool
 
 - name: Back up modprobe configuration target
   ansible.builtin.include_tasks: backup.yml
@@ -46,6 +70,10 @@
       blacklist hfsplus
       install jffs2 /bin/false
       blacklist jffs2
+      {% if cis_allow_squashfs_disable | bool %}
+      install squashfs /bin/false
+      blacklist squashfs
+      {% endif %}
       install udf /bin/false
       blacklist udf
       install firewire-core /bin/false
@@ -73,7 +101,7 @@
       - -r
       - "{{ item }}"
   changed_when: false
-  loop: "{{ ['cramfs','freevxfs','hfs','hfsplus','jffs2','udf','firewire-core'] + (['usb-storage'] if cis_allow_usb_storage_disable | bool else []) + (['overlay'] if cis_allow_overlay_disable | bool else []) + (cis_unused_filesystem_modules if cis_allow_unused_filesystem_module_disable | bool else []) }}"
+  loop: "{{ ['cramfs','freevxfs','hfs','hfsplus','jffs2','udf','firewire-core'] + (['squashfs'] if cis_allow_squashfs_disable | bool else []) + (['usb-storage'] if cis_allow_usb_storage_disable | bool else []) + (['overlay'] if cis_allow_overlay_disable | bool else []) + (cis_unused_filesystem_modules if cis_allow_unused_filesystem_module_disable | bool else []) }}"
   failed_when: false
   when: cis_allow_disruptive | bool
 
@@ -171,6 +199,8 @@
   loop:
     - {path: /etc/apt/auth.conf.d, patterns: '*'}
     - {path: /etc/apt/sources.list.d, patterns: '*'}
+    - {path: /etc/apt/trusted.gpg.d, patterns: '*'}
+    - {path: /usr/share/keyrings, patterns: '*'}
   register: cis_apt_files
 
 - name: Secure APT files
@@ -206,6 +236,11 @@
   ansible.builtin.include_tasks: backup.yml
   vars: {cis_backup_source: "{{ cis_sysctl_file }}"}
 
+- name: Check AppArmor unprivileged-unconfined sysctl availability
+  ansible.builtin.stat:
+    path: /proc/sys/kernel/apparmor_restrict_unprivileged_unconfined
+  register: cis_apparmor_unprivileged_sysctl
+
 - name: Configure process-hardening kernel parameters
   ansible.builtin.blockinfile:
     path: "{{ cis_sysctl_file }}"
@@ -218,10 +253,22 @@
       fs.suid_dumpable = 0
       kernel.randomize_va_space = 2
       kernel.yama.ptrace_scope = 1
+      kernel.dmesg_restrict = 1
+      kernel.kptr_restrict = 2
       kernel.unprivileged_bpf_disabled = 1
       net.core.bpf_jit_harden = 2
+      {% if cis_apparmor_unprivileged_sysctl.stat.exists %}
       kernel.apparmor_restrict_unprivileged_unconfined = 1
+      {% endif %}
   notify: Reload sysctl
+
+- name: Disable core dumps for all users
+  ansible.builtin.copy:
+    dest: /etc/security/limits.d/60-cis-debian13.conf
+    content: "* hard core 0\n"
+    owner: root
+    group: root
+    mode: '0644'
 
 - name: Secure GRUB configuration permissions
   ansible.builtin.file:
@@ -231,6 +278,31 @@
     mode: '0600'
   when: ansible_facts.stat is not defined
   failed_when: false
+
+- name: Validate the supplied GRUB password policy
+  ansible.builtin.assert:
+    that:
+      - cis_grub_superuser | length > 0
+      - cis_grub_pbkdf2_hash is match('^grub\\.pbkdf2\\.sha512\\.')
+    fail_msg: >-
+      Set cis_grub_superuser and a grub.pbkdf2.sha512 hash in
+      cis_grub_pbkdf2_hash before enabling bootloader remediation.
+  when: cis_allow_bootloader_changes | bool
+
+- name: Configure the GRUB superuser and password hash
+  ansible.builtin.copy:
+    dest: /etc/grub.d/01_cis_users
+    content: |
+      #!/bin/sh
+      cat <<'CIS_GRUB_USERS'
+      set superusers="{{ cis_grub_superuser }}"
+      password_pbkdf2 {{ cis_grub_superuser }} {{ cis_grub_pbkdf2_hash }}
+      CIS_GRUB_USERS
+    owner: root
+    group: root
+    mode: '0700'
+  when: cis_allow_bootloader_changes | bool
+  notify: Update GRUB
 
 - name: Configure legal banners
   ansible.builtin.copy:
@@ -242,11 +314,9 @@
   loop: [/etc/issue, /etc/issue.net]
 
 - name: Configure MOTD permissions
-  ansible.builtin.file:
-    path: /etc/motd
-    state: touch
+  ansible.builtin.copy:
+    dest: /etc/motd
+    content: "{{ cis_login_banner }}\n"
     owner: root
     group: root
     mode: '0644'
-    modification_time: preserve
-    access_time: preserve

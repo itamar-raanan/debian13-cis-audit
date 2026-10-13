@@ -22,6 +22,16 @@
     cis_backup_source: /etc/pam.d/common-password
   when: cis_allow_pam_changes | bool
 
+- name: Back up PAM authentication and account stacks
+  ansible.builtin.include_tasks: backup.yml
+  vars:
+    cis_backup_source: "{{ item }}"
+  loop:
+    - /etc/pam.d/common-auth
+    - /etc/pam.d/common-account
+    - /etc/pam.d/su
+  when: cis_allow_pam_changes | bool
+
 - name: Enable the Debian pwquality PAM profile
   ansible.builtin.shell: |
     set -o pipefail
@@ -51,6 +61,26 @@
     mode: '0440'
     validate: '/usr/sbin/visudo -cf %s'
 
+- name: Create an empty group for restricted su access
+  ansible.builtin.group:
+    name: sugroup
+    state: present
+  when: cis_allow_pam_changes | bool
+
+- name: Ensure the restricted su group has no members
+  ansible.builtin.command:
+    argv: [/usr/bin/gpasswd, -M, '', sugroup]
+  changed_when: false
+  when: cis_allow_pam_changes | bool
+
+- name: Restrict su access to the empty approved group
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/su
+    regexp: '^\s*auth\s+(required|requisite)\s+pam_wheel\.so\b'
+    line: 'auth required pam_wheel.so use_uid group=sugroup'
+    insertafter: '^#.*pam_wheel'
+  when: cis_allow_pam_changes | bool
+
 - name: Back up login.defs
   ansible.builtin.include_tasks: backup.yml
   vars:
@@ -59,6 +89,19 @@
 - name: Back up SSH configuration
   ansible.builtin.include_tasks: backup.yml
   vars: {cis_backup_source: "{{ cis_sshd_dropin }}"}
+  when: cis_allow_ssh_changes | bool
+
+- name: Validate the approved OpenSSH access policy
+  ansible.builtin.assert:
+    that:
+      - >-
+        (cis_sshd_allow_users | length > 0) or
+        (cis_sshd_allow_groups | length > 0) or
+        (cis_sshd_deny_users | length > 0) or
+        (cis_sshd_deny_groups | length > 0)
+    fail_msg: >-
+      Define at least one approved AllowUsers, AllowGroups, DenyUsers, or
+      DenyGroups list before enabling SSH remediation.
   when: cis_allow_ssh_changes | bool
 
 - name: Configure OpenSSH server hardening
@@ -72,6 +115,48 @@
   when: cis_allow_ssh_changes | bool
   notify: Restart ssh
 
+- name: Secure the primary OpenSSH server configuration
+  ansible.builtin.file:
+    path: /etc/ssh/sshd_config
+    owner: root
+    group: root
+    mode: '0600'
+  when: cis_allow_ssh_changes | bool
+
+- name: Find OpenSSH private host keys
+  ansible.builtin.find:
+    paths: /etc/ssh
+    patterns: 'ssh_host_*_key'
+    file_type: file
+  register: cis_ssh_private_host_keys
+  when: cis_allow_ssh_changes | bool
+
+- name: Secure OpenSSH private host keys
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    owner: root
+    group: root
+    mode: '0600'
+  loop: "{{ cis_ssh_private_host_keys.files | default([]) }}"
+  when: cis_allow_ssh_changes | bool
+
+- name: Find OpenSSH public host keys
+  ansible.builtin.find:
+    paths: /etc/ssh
+    patterns: 'ssh_host_*_key.pub'
+    file_type: file
+  register: cis_ssh_public_host_keys
+  when: cis_allow_ssh_changes | bool
+
+- name: Secure OpenSSH public host keys
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop: "{{ cis_ssh_public_host_keys.files | default([]) }}"
+  when: cis_allow_ssh_changes | bool
+
 - name: Configure login.defs password aging and umask
   ansible.builtin.lineinfile:
     path: /etc/login.defs
@@ -82,6 +167,7 @@
     - {key: PASS_MIN_DAYS, value: "{{ cis_password_min_days }}"}
     - {key: PASS_WARN_AGE, value: "{{ cis_password_warn_age }}"}
     - {key: UMASK, value: "{{ cis_umask }}"}
+    - {key: ENCRYPT_METHOD, value: YESCRYPT}
 
 - name: Validate the approved minimum password age
   ansible.builtin.assert:
@@ -125,6 +211,30 @@
       - "{{ cis_inactive_days | string }}"
   changed_when: false
 
+- name: Find local password-bearing accounts for password aging
+  ansible.builtin.shell: |
+    awk -F: '$2 ~ /^!?\$.+\$/ {print $1}' /etc/shadow
+  args:
+    executable: /bin/bash
+  register: cis_password_bearing_accounts
+  changed_when: false
+  when: cis_allow_password_age_changes | bool
+
+- name: Apply password maximum age warning and inactivity to existing accounts
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/chage
+      - -M
+      - "{{ cis_password_max_days | string }}"
+      - -W
+      - "{{ cis_password_warn_age | string }}"
+      - -I
+      - "{{ cis_inactive_days | string }}"
+      - "{{ item }}"
+  loop: "{{ cis_password_bearing_accounts.stdout_lines | default([]) }}"
+  changed_when: true
+  when: cis_allow_password_age_changes | bool
+
 - name: Back up the managed pwquality policy
   ansible.builtin.include_tasks: backup.yml
   vars:
@@ -136,6 +246,7 @@
     dest: /etc/security/pwquality.conf.d/60-cis-debian13.conf
     content: |
       minlen = 14
+      difok = 2
       minclass = 4
       dcredit = -1
       ucredit = -1
@@ -154,9 +265,9 @@
   ansible.builtin.copy:
     dest: /etc/security/faillock.conf
     content: |
-      deny = 5
+      deny = {{ cis_faillock_deny }}
       fail_interval = 900
-      unlock_time = 900
+      unlock_time = {{ cis_faillock_unlock_time }}
       even_deny_root
       root_unlock_time = 60
       audit
@@ -165,3 +276,73 @@
     group: root
     mode: '0644'
   when: cis_allow_pam_changes | bool
+
+- name: Configure password history policy
+  ansible.builtin.copy:
+    dest: /etc/security/pwhistory.conf
+    content: |
+      remember = {{ cis_password_history }}
+      enforce_for_root
+    owner: root
+    group: root
+    mode: '0644'
+  when: cis_allow_pam_changes | bool
+
+- name: Enable pam_faillock preauthentication
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/common-auth
+    regexp: '^\s*auth\s+required\s+pam_faillock\.so\s+preauth\b'
+    line: 'auth required pam_faillock.so preauth'
+    insertbefore: '^\s*auth\s+.*pam_unix\.so\b'
+  when: cis_allow_pam_changes | bool
+
+- name: Enable pam_faillock authentication failure handling
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/common-auth
+    regexp: '^\s*auth\s+.*pam_faillock\.so\s+authfail\b'
+    line: 'auth [default=die] pam_faillock.so authfail'
+    insertafter: '^\s*auth\s+.*pam_unix\.so\b'
+  when: cis_allow_pam_changes | bool
+
+- name: Enable pam_faillock account handling
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/common-account
+    regexp: '^\s*account\s+required\s+pam_faillock\.so\b'
+    line: 'account required pam_faillock.so'
+    insertbefore: '^\s*account\s+.*pam_unix\.so\b'
+  when: cis_allow_pam_changes | bool
+
+- name: Enable pam_pwhistory before pam_unix
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/common-password
+    regexp: '^\s*password\s+requisite\s+pam_pwhistory\.so\b'
+    line: 'password requisite pam_pwhistory.so use_authtok'
+    insertbefore: '^\s*password\s+.*pam_unix\.so\b'
+  when: cis_allow_pam_changes | bool
+
+- name: Configure strong pam_unix password options
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/common-password
+    regexp: '^\s*password\s+\[[^]]+\]\s+pam_unix\.so\b.*$'
+    line: 'password [success=1 default=ignore] pam_unix.so obscure use_authtok try_first_pass yescrypt'
+  when: cis_allow_pam_changes | bool
+
+- name: Remove nullok from active pam_unix authentication entries
+  ansible.builtin.replace:
+    path: /etc/pam.d/common-auth
+    regexp: '(?m)^(\s*auth\s+[^#\n]*pam_unix\.so[^\n]*?)\s+nullok\b'
+    replace: '\1'
+  when: cis_allow_pam_changes | bool
+
+- name: Configure system-wide timeout and umask
+  ansible.builtin.copy:
+    dest: /etc/profile.d/60-cis-debian13.sh
+    content: |
+      # Managed by the CIS Debian 13 remediation role
+      umask {{ cis_umask }}
+      TMOUT={{ cis_shell_timeout }}
+      readonly TMOUT
+      export TMOUT
+    owner: root
+    group: root
+    mode: '0644'

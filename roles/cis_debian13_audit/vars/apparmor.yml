@@ -57,6 +57,7 @@ cis_apparmor_controls:
     expected: kernel.apparmor_restrict_unprivileged_unconfined equals 1 at runtime and in effective persistent configuration.
     audit: !unsafe |
       parameter=kernel.apparmor_restrict_unprivileged_unconfined
+      [ -e /proc/sys/kernel/apparmor_restrict_unprivileged_unconfined ] || { echo 'NOT_APPLICABLE: kernel does not expose this AppArmor parameter'; exit 3; }
       runtime="$(sysctl -n "$parameter" 2>/dev/null || true)"
       persistent=""
       systemd_sysctl="$(readlink -e /lib/systemd/systemd-sysctl || readlink -e /usr/lib/systemd/systemd-sysctl || true)"

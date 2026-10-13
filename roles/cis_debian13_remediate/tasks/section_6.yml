@@ -1,7 +1,7 @@
 ---
 - name: Install logging and auditing packages
   ansible.builtin.apt:
-    name: [auditd, audispd-plugins, rsyslog]
+    name: [auditd, audispd-plugins, rsyslog, rsyslog-gnutls, systemd-journal-remote, logrotate]
     state: present
 
 - name: Enable auditd and rsyslog
@@ -40,7 +40,7 @@
       [Journal]
       Storage=persistent
       Compress=yes
-      ForwardToSyslog=yes
+      ForwardToSyslog={{ 'yes' if cis_logging_mode == 'rsyslog' else 'no' }}
       SystemMaxUse={{ cis_journald_system_max_use }}
       SystemKeepFree={{ cis_journald_system_keep_free }}
       RuntimeMaxUse={{ cis_journald_runtime_max_use }}
@@ -102,12 +102,55 @@
     - {key: space_left_action, value: email}
     - {key: action_mail_acct, value: root}
     - {key: admin_space_left_action, value: halt}
+    - {key: disk_full_action, value: halt}
+    - {key: disk_error_action, value: syslog}
   notify: Restart auditd
+
+- name: Configure audit kernel boot parameters
+  ansible.builtin.copy:
+    dest: /etc/default/grub.d/60-cis-audit.cfg
+    content: |
+      GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX audit=1 audit_backlog_limit={{ cis_audit_backlog_limit }}"
+    owner: root
+    group: root
+    mode: '0644'
+  when: cis_allow_bootloader_changes | bool
+  notify: Update GRUB
 
 - name: Back up the managed audit-rule file
   ansible.builtin.include_tasks: backup.yml
   vars:
     cis_backup_source: "{{ cis_audit_rules_file }}"
+  when: (['level2_server', 'level2_workstation'] | intersect(cis_effective_profiles) | length) > 0
+
+- name: Remove the superseded managed audit-rule file
+  ansible.builtin.file:
+    path: /etc/audit/rules.d/60-cis-debian13.rules
+    state: absent
+  when:
+    - cis_audit_rules_file != '/etc/audit/rules.d/60-cis-debian13.rules'
+    - (['level2_server', 'level2_workstation'] | intersect(cis_effective_profiles) | length) > 0
+  notify: Load audit rules
+
+- name: Inspect optional audit watch paths
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /etc/NetworkManager
+    - /var/run/faillock
+  register: cis_optional_audit_paths
+  when: (['level2_server', 'level2_workstation'] | intersect(cis_effective_profiles) | length) > 0
+
+- name: Read the current audit subsystem state
+  ansible.builtin.command: /usr/sbin/auditctl -s
+  register: cis_audit_status
+  changed_when: false
+  failed_when: false
+  when: (['level2_server', 'level2_workstation'] | intersect(cis_effective_profiles) | length) > 0
+
+- name: Record whether the running audit configuration is immutable
+  ansible.builtin.set_fact:
+    cis_audit_runtime_locked: "{{ cis_audit_status.stdout is search('(?m)^enabled\\s+2$') }}"
   when: (['level2_server', 'level2_workstation'] | intersect(cis_effective_profiles) | length) > 0
 
 - name: Install baseline audit rules
@@ -138,7 +181,18 @@
   args:
     executable: /bin/bash
   changed_when: false
-  when: (['level2_server', 'level2_workstation'] | intersect(cis_effective_profiles) | length) > 0
+  when:
+    - (['level2_server', 'level2_workstation'] | intersect(cis_effective_profiles) | length) > 0
+    - not cis_audit_runtime_locked | default(false) | bool
+
+- name: Report that new audit rules require a reboot
+  ansible.builtin.debug:
+    msg: >-
+      The running audit configuration is immutable. The new on-disk rules will
+      become active after reboot; rerun the audit afterward.
+  when:
+    - (['level2_server', 'level2_workstation'] | intersect(cis_effective_profiles) | length) > 0
+    - cis_audit_runtime_locked | default(false) | bool
 
 - name: Secure log file permissions
   ansible.builtin.file:
@@ -150,3 +204,181 @@
     - /var/log/auth.log
     - /var/log/syslog
   failed_when: false
+
+- name: Find log files with excessive permissions
+  ansible.builtin.find:
+    paths: /var/log
+    recurse: true
+    file_type: file
+  register: cis_log_files
+  when: cis_allow_log_permission_changes | bool
+
+- name: Remove group-write and all other permissions from log files
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    mode: 'u=rw,g=r,o='
+  loop: "{{ cis_log_files.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path }}"
+  when: cis_allow_log_permission_changes | bool
+
+- name: Find installed audit tools
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /usr/sbin/auditctl
+    - /usr/sbin/aureport
+    - /usr/sbin/ausearch
+    - /usr/sbin/autrace
+    - /usr/sbin/auditd
+    - /usr/sbin/augenrules
+  register: cis_audit_tool_stats
+
+- name: Secure installed audit tools
+  ansible.builtin.file:
+    path: "{{ item.stat.path }}"
+    owner: root
+    group: root
+    mode: '0755'
+  loop: "{{ cis_audit_tool_stats.results }}"
+  when: item.stat.exists | default(false)
+
+- name: Validate remote journal-upload policy
+  ansible.builtin.assert:
+    that:
+      - cis_journal_upload_url | length > 0
+      - cis_journal_upload_server_key_file | length > 0
+      - cis_journal_upload_server_certificate_file | length > 0
+      - cis_journal_upload_trusted_certificate_file | length > 0
+    fail_msg: Supply the journal-upload URL and all TLS credential paths.
+  when: cis_allow_remote_logging_changes | bool
+
+- name: Configure authenticated journal upload
+  ansible.builtin.copy:
+    dest: /etc/systemd/journal-upload.conf
+    content: |
+      [Upload]
+      URL={{ cis_journal_upload_url }}
+      ServerKeyFile={{ cis_journal_upload_server_key_file }}
+      ServerCertificateFile={{ cis_journal_upload_server_certificate_file }}
+      TrustedCertificateFile={{ cis_journal_upload_trusted_certificate_file }}
+    owner: root
+    group: root
+    mode: '0600'
+  when: cis_allow_remote_logging_changes | bool
+  notify: Restart journal upload
+
+- name: Secure journal-upload TLS credentials
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - {path: "{{ cis_journal_upload_server_key_file }}", mode: '0600'}
+    - {path: "{{ cis_journal_upload_server_certificate_file }}", mode: '0644'}
+    - {path: "{{ cis_journal_upload_trusted_certificate_file }}", mode: '0644'}
+  when: cis_allow_remote_logging_changes | bool
+
+- name: Enable authenticated journal upload
+  ansible.builtin.systemd_service:
+    name: systemd-journal-upload
+    enabled: true
+    state: started
+  when: cis_allow_remote_logging_changes | bool
+
+- name: Validate remote rsyslog TLS policy
+  ansible.builtin.assert:
+    that:
+      - cis_rsyslog_remote_host | length > 0
+      - cis_rsyslog_ca_file | length > 0
+      - cis_rsyslog_certificate_file | length > 0
+      - cis_rsyslog_key_file | length > 0
+    fail_msg: Supply the approved rsyslog host and TLS credential paths.
+  when: cis_allow_remote_logging_changes | bool
+
+- name: Configure authenticated TLS rsyslog forwarding
+  ansible.builtin.copy:
+    dest: /etc/rsyslog.d/60-cis-remote.conf
+    content: |
+      global(
+        DefaultNetstreamDriver="gtls"
+        DefaultNetstreamDriverCAFile="{{ cis_rsyslog_ca_file }}"
+        DefaultNetstreamDriverCertFile="{{ cis_rsyslog_certificate_file }}"
+        DefaultNetstreamDriverKeyFile="{{ cis_rsyslog_key_file }}"
+      )
+      action(
+        type="omfwd"
+        target="{{ cis_rsyslog_remote_host }}"
+        port="{{ cis_rsyslog_remote_port }}"
+        protocol="tcp"
+        StreamDriver="gtls"
+        StreamDriverMode="1"
+        StreamDriverAuthMode="x509/name"
+        StreamDriverPermittedPeers="{{ cis_rsyslog_remote_host }}"
+        action.resumeRetryCount="-1"
+        queue.type="linkedList"
+        queue.filename="cis_remote"
+        queue.saveOnShutdown="on"
+      )
+    owner: root
+    group: root
+    mode: '0600'
+    validate: '/usr/sbin/rsyslogd -N1 -f %s'
+  when: cis_allow_remote_logging_changes | bool
+  notify: Restart rsyslog
+
+- name: Secure rsyslog TLS credentials
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - {path: "{{ cis_rsyslog_key_file }}", mode: '0600'}
+    - {path: "{{ cis_rsyslog_certificate_file }}", mode: '0644'}
+    - {path: "{{ cis_rsyslog_ca_file }}", mode: '0644'}
+  when: cis_allow_remote_logging_changes | bool
+
+- name: Install AIDE packages
+  ansible.builtin.apt:
+    name: [aide, aide-common]
+    state: present
+  when: cis_allow_aide_changes | bool
+
+- name: Configure AIDE protection for audit tools
+  ansible.builtin.copy:
+    dest: /etc/aide/aide.conf.d/60-cis-audit-tools
+    content: |
+      /usr/sbin/auditctl p+i+n+u+g+s+b+acl+xattrs+sha512
+      /usr/sbin/aureport p+i+n+u+g+s+b+acl+xattrs+sha512
+      /usr/sbin/ausearch p+i+n+u+g+s+b+acl+xattrs+sha512
+      /usr/sbin/autrace p+i+n+u+g+s+b+acl+xattrs+sha512
+      /usr/sbin/auditd p+i+n+u+g+s+b+acl+xattrs+sha512
+      /usr/sbin/augenrules p+i+n+u+g+s+b+acl+xattrs+sha512
+    owner: root
+    group: root
+    mode: '0640'
+  when: cis_allow_aide_changes | bool
+
+- name: Check whether the AIDE database is initialized
+  ansible.builtin.stat:
+    path: /var/lib/aide/aide.db
+  register: cis_aide_database
+  when: cis_allow_aide_changes | bool
+
+- name: Initialize the AIDE database
+  ansible.builtin.command: /usr/sbin/aideinit
+  changed_when: true
+  when:
+    - cis_allow_aide_changes | bool
+    - not cis_aide_database.stat.exists
+
+- name: Schedule a daily AIDE integrity check
+  ansible.builtin.copy:
+    dest: /etc/cron.d/cis-aide-check
+    content: "0 5 * * * root /usr/bin/aide --check\n"
+    owner: root
+    group: root
+    mode: '0600'
+  when: cis_allow_aide_changes | bool

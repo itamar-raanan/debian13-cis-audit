@@ -16,6 +16,7 @@ cis_section6_controls:
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
   audit: !unsafe |
+    [ "${CIS_LOGGING_MODE:-rsyslog}" != rsyslog ] || { echo 'NOT_APPLICABLE: rsyslog is the selected logging mode'; exit 3; }
     v=$(grep -hE '^[[:space:]]*ForwardToSyslog[[:space:]]*=' /etc/systemd/journald.conf /etc/systemd/journald.conf.d/*.conf 2>/dev/null | sed -E 's/^[^=]+=[[:space:]]*//;s/[[:space:]]*(#.*)?$//' | tail -1 | tr '[:upper:]' '[:lower:]')
     [ "$v" = "no" ] || { echo 'ForwardToSyslog='"${v:-unset}"', expected no'; exit 1; }
     echo 'ForwardToSyslog='$v
@@ -94,6 +95,7 @@ cis_section6_controls:
   - level1_workstation
   expected: System satisfies the benchmark audit procedure
   audit: !unsafe |
+    [ "${CIS_LOGGING_MODE:-rsyslog}" != journald ] || { echo 'NOT_APPLICABLE: journald is the selected logging mode'; exit 3; }
     v=$(grep -hE '^[[:space:]]*ForwardToSyslog[[:space:]]*=' /etc/systemd/journald.conf /etc/systemd/journald.conf.d/*.conf 2>/dev/null | sed -E 's/^[^=]+=[[:space:]]*//;s/[[:space:]]*(#.*)?$//' | tail -1 | tr '[:upper:]' '[:lower:]')
     [ "$v" = "yes" ] || { echo 'ForwardToSyslog='"${v:-unset}"', expected yes'; exit 1; }
     echo 'ForwardToSyslog='$v
@@ -330,6 +332,7 @@ cis_section6_controls:
   - level2_workstation
   expected: System satisfies the benchmark audit procedure
   audit: !unsafe |
+    [ -d /etc/NetworkManager ] || { echo 'NOT_APPLICABLE: /etc/NetworkManager does not exist'; exit 3; }
     disk=$(cat /etc/audit/rules.d/*.rules 2>/dev/null || true)
     run=$(auditctl -l 2>/dev/null || true)
     grep -Pq '/etc/NetworkManager' <<<"$disk" || { echo 'On-disk audit rule missing: /etc/NetworkManager'; exit 1; }

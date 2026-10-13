@@ -21,7 +21,7 @@
     - "cis_{{ cis_control.id | replace('.', '_') }}"
 
 - name: "{{ cis_control.id }} | Check loaded module"
-  ansible.builtin.command: "lsmod"
+  ansible.builtin.command: /usr/sbin/lsmod
   register: cis_lsmod
   changed_when: false
   failed_when: false
@@ -30,7 +30,7 @@
     - "cis_{{ cis_control.id | replace('.', '_') }}"
 
 - name: "{{ cis_control.id }} | Read modprobe configuration"
-  ansible.builtin.command: "modprobe --showconfig"
+  ansible.builtin.command: /usr/sbin/modprobe --showconfig
   register: cis_modprobe_config
   changed_when: false
   failed_when: false

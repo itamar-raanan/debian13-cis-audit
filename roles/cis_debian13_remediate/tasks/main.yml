@@ -7,9 +7,11 @@
       - ansible_facts.distribution == 'Debian'
       - ansible_facts.distribution_major_version == '13'
       - cis_profile in ['level1_server', 'level2_server', 'level1_workstation', 'level2_workstation']
+      - cis_logging_mode in ['journald', 'rsyslog']
     fail_msg: >-
       Remediation is blocked. Set both cis_remediation_enabled=true and
-      cis_remediation_confirm=true, and run only on Debian 13.
+      cis_remediation_confirm=true, run only on Debian 13, and select a valid
+      CIS profile and logging mode.
 
 - name: Show selected and effective CIS remediation profiles
   ansible.builtin.debug:
