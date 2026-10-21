@@ -21,6 +21,11 @@ cis_report_dir: "{{ playbook_dir }}/reports"
 cis_report_formats: [json, csv, html]
 cis_report_schema_version: "1.1"
 cis_audit_tool_version: "1.1.0"
+cis_sec360_upload_enabled: false
+cis_sec360_url: ""
+cis_sec360_token: ""
+cis_sec360_validate_certs: true
+cis_sec360_ca_path: ""
 cis_exceptions: {}
 cis_results: []
 

@@ -1,0 +1,49 @@
+---
+- name: Upload generated JSON report to SEC360
+  when:
+    - cis_sec360_upload_enabled | bool
+    - "'json' in cis_report_formats"
+    - cis_json_report is defined
+    - cis_json_report is succeeded
+    - not (cis_json_report.skipped | default(false))
+  block:
+    - name: Validate SEC360 upload URL
+      ansible.builtin.assert:
+        that:
+          - cis_sec360_url | default('') | trim | length > 0
+        quiet: true
+        fail_msg: >-
+          SEC360 upload is enabled, but cis_sec360_url is empty. Set it to the
+          SEC360 base URL, for example https://sec360.example.com.
+
+    - name: Validate SEC360 upload token
+      ansible.builtin.assert:
+        that:
+          - cis_sec360_token | default('') | trim | length > 0
+        quiet: true
+        fail_msg: >-
+          SEC360 upload is enabled, but cis_sec360_token is empty. Supply the
+          token through Ansible Vault, an environment lookup, or the automation
+          platform's secret store.
+
+    - name: POST JSON audit report to SEC360
+      ansible.builtin.uri:
+        url: "{{ cis_sec360_url | regex_replace('/+$', '') }}/api/linux-audits/ingest"
+        method: POST
+        src: "{{ cis_report_json_path }}"
+        headers:
+          Authorization: "Bearer {{ cis_sec360_token }}"
+          Content-Type: application/json
+          X-Report-Filename: "{{ cis_report_json_path | basename }}"
+        status_code:
+          - 200
+          - 201
+        validate_certs: "{{ cis_sec360_validate_certs | bool }}"
+        ca_path: "{{ (cis_sec360_ca_path | trim) if (cis_sec360_ca_path | default('') | trim | length > 0) else omit }}"
+      register: cis_sec360_upload_result
+      until: cis_sec360_upload_result.status | default(0) | int in [200, 201]
+      retries: 3
+      delay: 5
+      delegate_to: localhost
+      become: false
+      no_log: true

@@ -1,0 +1,144 @@
+---
+- name: Test optional SEC360 JSON upload
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    cis_test_base_url: "{{ lookup('env', 'SEC360_TEST_BASE_URL') }}"
+    cis_test_report_path: "{{ lookup('env', 'SEC360_TEST_REPORT_PATH') }}"
+    cis_test_ca_path: "{{ lookup('env', 'SEC360_TEST_CA_PATH') }}"
+    cis_report_json_path: "{{ cis_test_report_path }}"
+    cis_report_formats: [json]
+    cis_json_report:
+      changed: false
+      failed: false
+      skipped: false
+    cis_sec360_validate_certs: true
+    cis_sec360_ca_path: ""
+  tasks:
+    - name: Verify integration test inputs
+      ansible.builtin.assert:
+        that:
+          - cis_test_base_url | length > 0
+          - cis_test_report_path | length > 0
+          - cis_test_ca_path | length > 0
+
+    - name: Exercise upload-disabled guard
+      ansible.builtin.include_tasks: ../roles/cis_debian13_audit/tasks/sec360_upload.yml
+      vars:
+        cis_sec360_upload_enabled: false
+        cis_sec360_url: "{{ cis_test_base_url }}"
+        cis_sec360_token: disabled-token
+
+    - name: Exercise JSON-output-disabled guard
+      ansible.builtin.include_tasks: ../roles/cis_debian13_audit/tasks/sec360_upload.yml
+      vars:
+        cis_sec360_upload_enabled: true
+        cis_sec360_url: "{{ cis_test_base_url }}"
+        cis_sec360_token: json-disabled-token
+        cis_report_formats: [html]
+
+    - name: Initialize expected validation failures
+      ansible.builtin.set_fact:
+        cis_test_missing_url_rejected: false
+        cis_test_missing_token_rejected: false
+
+    - name: Verify missing URL is rejected
+      block:
+        - name: Exercise missing URL validation
+          ansible.builtin.include_tasks: ../roles/cis_debian13_audit/tasks/sec360_upload.yml
+          vars:
+            cis_sec360_upload_enabled: true
+            cis_sec360_url: ""
+            cis_sec360_token: validation-token
+
+        - name: Fail when missing URL was accepted
+          ansible.builtin.fail:
+            msg: Missing SEC360 URL was not rejected.
+      rescue:
+        - name: Confirm missing URL validation message
+          ansible.builtin.assert:
+            that:
+              - "'cis_sec360_url is empty' in ansible_failed_result.msg"
+
+        - name: Record missing URL rejection
+          ansible.builtin.set_fact:
+            cis_test_missing_url_rejected: true
+
+    - name: Verify missing token is rejected
+      block:
+        - name: Exercise missing token validation
+          ansible.builtin.include_tasks: ../roles/cis_debian13_audit/tasks/sec360_upload.yml
+          vars:
+            cis_sec360_upload_enabled: true
+            cis_sec360_url: "{{ cis_test_base_url }}"
+            cis_sec360_token: ""
+
+        - name: Fail when missing token was accepted
+          ansible.builtin.fail:
+            msg: Missing SEC360 token was not rejected.
+      rescue:
+        - name: Confirm missing token validation message
+          ansible.builtin.assert:
+            that:
+              - "'cis_sec360_token is empty' in ansible_failed_result.msg"
+
+        - name: Record missing token rejection
+          ansible.builtin.set_fact:
+            cis_test_missing_token_rejected: true
+
+    - name: Confirm validation failures were caught
+      ansible.builtin.assert:
+        that:
+          - cis_test_missing_url_rejected | bool
+          - cis_test_missing_token_rejected | bool
+
+    - name: Exercise successful 201 upload
+      ansible.builtin.include_tasks: ../roles/cis_debian13_audit/tasks/sec360_upload.yml
+      vars:
+        cis_sec360_upload_enabled: true
+        cis_sec360_url: "{{ cis_test_base_url }}/"
+        cis_sec360_token: SEC360_TEST_SECRET_DO_NOT_PRINT
+
+    - name: Confirm new report response
+      ansible.builtin.assert:
+        that:
+          - cis_sec360_upload_result.status | int == 201
+
+    - name: Exercise duplicate 200 upload
+      ansible.builtin.include_tasks: ../roles/cis_debian13_audit/tasks/sec360_upload.yml
+      vars:
+        cis_sec360_upload_enabled: true
+        cis_sec360_url: "{{ cis_test_base_url }}"
+        cis_sec360_token: duplicate-token
+
+    - name: Confirm duplicate report response
+      ansible.builtin.assert:
+        that:
+          - cis_sec360_upload_result.status | int == 200
+
+    - name: Exercise retry after temporary server error
+      ansible.builtin.include_tasks: ../roles/cis_debian13_audit/tasks/sec360_upload.yml
+      vars:
+        cis_sec360_upload_enabled: true
+        cis_sec360_url: "{{ cis_test_base_url }}"
+        cis_sec360_token: retry-token
+
+    - name: Confirm retry reached a successful response
+      ansible.builtin.assert:
+        that:
+          - cis_sec360_upload_result.status | int == 201
+          - cis_sec360_upload_result.attempts | int == 2
+
+    - name: Exercise custom CA configuration
+      ansible.builtin.include_tasks: ../roles/cis_debian13_audit/tasks/sec360_upload.yml
+      vars:
+        cis_sec360_upload_enabled: true
+        cis_sec360_url: "{{ cis_test_base_url }}"
+        cis_sec360_token: custom-ca-token
+        cis_sec360_ca_path: "{{ cis_test_ca_path }}"
+
+    - name: Confirm custom CA scenario completed
+      ansible.builtin.assert:
+        that:
+          - cis_sec360_upload_result.status | int == 201

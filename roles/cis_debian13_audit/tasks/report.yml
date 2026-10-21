@@ -84,6 +84,11 @@
         if cis_report_git_revision.rc | default(1) == 0
         else ''
       }}
+    cis_report_json_path: >-
+      {{
+        cis_report_dir ~ '/' ~ cis_report_hostname ~
+        '/cis_report_' ~ cis_report_hostname ~ '_' ~ cis_report_timestamp ~ '.json'
+      }}
   changed_when: false
 
 - name: Ensure report directory exists on controller
@@ -108,11 +113,15 @@
 - name: Write JSON report
   ansible.builtin.template:
     src: report.json.j2
-    dest: "{{ cis_report_dir }}/{{ cis_report_hostname }}/cis_report_{{ cis_report_hostname }}_{{ cis_report_timestamp }}.json"
+    dest: "{{ cis_report_json_path }}"
     mode: '0640'
+  register: cis_json_report
   delegate_to: localhost
   become: false
   when: "'json' in cis_report_formats"
+
+- name: Process optional SEC360 JSON upload
+  ansible.builtin.include_tasks: sec360_upload.yml
 
 - name: Write CSV report
   ansible.builtin.template:
