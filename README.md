@@ -65,6 +65,98 @@ Run the report metadata validation with:
 python3 -m unittest tests/test_report_metadata.py
 ```
 
+## Optional SEC360 upload
+
+Automatic upload is disabled by default. When enabled, the role sends the
+generated JSON report as the raw body of a `POST` request to
+`/api/linux-audits/ingest`. HTML and CSV generation are unchanged.
+
+Configure the non-secret settings in inventory or group variables:
+
+```yaml
+cis_sec360_upload_enabled: true
+cis_sec360_url: "https://sec360.example.com"
+cis_sec360_validate_certs: true
+cis_sec360_ca_path: ""
+```
+
+Never store the plaintext SEC360 token in the repository. Use Ansible Vault,
+an environment-variable lookup on the controller, or the automation
+platform's secret store.
+
+To use Ansible Vault, create an encrypted variables file:
+
+```bash
+ansible-vault create group_vars/sec360.vault.yml
+```
+
+Add the token inside the encrypted file:
+
+```yaml
+cis_sec360_token: "replace-with-the-real-token"
+```
+
+Then run the audit with the vault file and your normal vault-password method:
+
+```bash
+ansible-playbook -i inventory.ini audit.yml \
+  -e @group_vars/sec360.vault.yml \
+  --ask-vault-pass
+```
+
+For an environment-based secret, inject this variable from an untracked local
+variables file or from the automation platform:
+
+```yaml
+cis_sec360_token: "{{ lookup('env', 'SEC360_LINUX_AUDIT_TOKEN') }}"
+```
+
+For a private certificate authority, place the CA certificate on the Ansible
+controller and configure its controller-side path:
+
+```yaml
+cis_sec360_validate_certs: true
+cis_sec360_ca_path: "/etc/ssl/certs/company-root-ca.pem"
+```
+
+Test the SEC360 endpoint manually with a generated report:
+
+```bash
+curl --fail-with-body \
+  -X POST \
+  "https://SEC360-SERVER/api/linux-audits/ingest" \
+  -H "Authorization: Bearer ${SEC360_LINUX_AUDIT_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -H "X-Report-Filename: cis_report_server01.json" \
+  --data-binary "@cis_report_server01.json"
+```
+
+SEC360 response meanings:
+
+- `200 OK`: the report already existed; the retry was accepted safely.
+- `201 Created`: a new report was imported.
+- `401 Unauthorized`: the token is missing, invalid, or not permitted.
+- `409 Conflict`: the report conflicts with an existing record or ingestion state.
+- `413 Payload Too Large`: the generated JSON exceeds the server upload limit.
+- `415 Unsupported Media Type`: the request was not sent as `application/json`.
+- `422 Unprocessable Entity`: the JSON was valid but failed SEC360 schema or field validation.
+
+Only `200` and `201` are successful. The upload task retries up to three times
+with a five-second delay. Upload failures do not delete or alter any locally
+generated report.
+
+Run the static upload checks with:
+
+```bash
+python3 -m unittest tests/test_sec360_upload.py
+```
+
+When Ansible is installed, run the controller-side integration scenarios with:
+
+```bash
+tests/run_sec360_upload_tests.sh
+```
+
 ## Profiles
 
 - `level1_server`
