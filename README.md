@@ -52,6 +52,19 @@ ansible-playbook -i inventory.ini audit.yml --tags cis_1_1_2_1_1
 
 Reports are written to `reports/` on the Ansible controller.
 
+Each JSON report includes schema version `1.1`, server identity, non-loopback
+IPv4 addresses, operating-system details, a SHA-256 hash of the machine ID, and
+best-effort audit-tool version information. CSV rows include the corresponding
+host and system columns. The HTML report shows the same identity details in its
+header. Missing facts or unavailable Git metadata produce empty values and do
+not stop the audit.
+
+Run the report metadata validation with:
+
+```bash
+python3 -m unittest tests/test_report_metadata.py
+```
+
 ## Profiles
 
 - `level1_server`
