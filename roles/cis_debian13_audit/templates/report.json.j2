@@ -1,8 +1,24 @@
 {{ {
-  'benchmark': cis_benchmark,
+  'schema_version': cis_report_schema_version,
   'host': inventory_hostname,
+  'fqdn': cis_report_fqdn,
+  'ip_address': cis_report_ip_address,
+  'ip_addresses': cis_report_ip_addresses,
+  'system': {
+    'distribution': cis_report_distribution,
+    'distribution_version': cis_report_distribution_version,
+    'kernel': cis_report_kernel,
+    'architecture': cis_report_architecture,
+    'virtualization_type': cis_report_virtualization_type,
+    'machine_id_hash': cis_report_machine_id_hash
+  },
+  'audit_tool': {
+    'version': cis_audit_tool_version,
+    'git_commit': cis_report_git_commit
+  },
+  'benchmark': cis_benchmark,
   'profile': cis_profile,
-  'generated_at': ansible_date_time.iso8601,
+  'generated_at': cis_report_generated_at,
   'summary': cis_summary,
   'results': cis_results
 } | to_nice_json }}

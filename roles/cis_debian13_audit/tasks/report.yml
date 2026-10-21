@@ -1,8 +1,89 @@
 ---
 - name: Generate report metadata
   ansible.builtin.set_fact:
-    cis_report_hostname: "{{ ansible_hostname | default(inventory_hostname) }}"
+    cis_report_hostname: "{{ ansible_hostname | default(inventory_hostname, true) }}"
+    cis_report_fqdn: "{{ ansible_fqdn | default('', true) }}"
+    cis_report_generated_at: "{{ (ansible_date_time | default({})).iso8601 | default('', true) }}"
     cis_report_timestamp: "{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}"
+    cis_report_default_ipv4_address: "{{ (ansible_default_ipv4 | default({})).address | default('', true) }}"
+    cis_report_ip_addresses: >-
+      {{
+        ansible_all_ipv4_addresses
+        | default([], true)
+        | reject('match', '^127\\.')
+        | unique
+        | list
+      }}
+    cis_report_distribution: "{{ ansible_distribution | default('', true) }}"
+    cis_report_distribution_version: "{{ ansible_distribution_version | default('', true) }}"
+    cis_report_kernel: "{{ ansible_kernel | default('', true) }}"
+    cis_report_architecture: "{{ ansible_architecture | default('', true) }}"
+    cis_report_virtualization_type: "{{ ansible_virtualization_type | default('', true) }}"
+  changed_when: false
+
+- name: Normalize report IPv4 address list
+  ansible.builtin.set_fact:
+    cis_report_ip_addresses: >-
+      {{
+        ([cis_report_default_ipv4_address] + cis_report_ip_addresses)
+        | reject('equalto', '')
+        | reject('match', '^127\\.')
+        | unique
+        | list
+      }}
+  changed_when: false
+
+- name: Select report primary IP address
+  ansible.builtin.set_fact:
+    cis_report_ip_address: >-
+      {{
+        cis_report_default_ipv4_address
+        if cis_report_default_ipv4_address | length > 0
+        and not cis_report_default_ipv4_address.startswith('127.')
+        else cis_report_ip_addresses | first | default('')
+      }}
+  changed_when: false
+
+- name: Hash machine ID for report metadata
+  ansible.builtin.command:
+    argv:
+      - sha256sum
+      - /etc/machine-id
+  register: cis_report_machine_id_checksum
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Read audit project Git commit
+  ansible.builtin.command:
+    argv:
+      - git
+      - -C
+      - "{{ playbook_dir }}"
+      - rev-parse
+      - --short=7
+      - HEAD
+  register: cis_report_git_revision
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Finalize report identity metadata
+  ansible.builtin.set_fact:
+    cis_report_machine_id_hash: >-
+      {{
+        (cis_report_machine_id_checksum.stdout | default('')).split() | first | default('')
+        if cis_report_machine_id_checksum.rc | default(1) == 0
+        else ''
+      }}
+    cis_report_git_commit: >-
+      {{
+        cis_report_git_revision.stdout | default('') | trim
+        if cis_report_git_revision.rc | default(1) == 0
+        else ''
+      }}
   changed_when: false
 
 - name: Ensure report directory exists on controller

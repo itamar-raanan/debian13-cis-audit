@@ -19,6 +19,8 @@ cis_effective_profiles: "{{ cis_profile_inheritance[cis_profile] | default([cis_
 
 cis_report_dir: "{{ playbook_dir }}/reports"
 cis_report_formats: [json, csv, html]
+cis_report_schema_version: "1.1"
+cis_audit_tool_version: "1.1.0"
 cis_exceptions: {}
 cis_results: []
 

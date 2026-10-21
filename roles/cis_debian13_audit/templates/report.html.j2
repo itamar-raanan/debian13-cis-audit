@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CIS Debian 13 Audit - {{ inventory_hostname }}</title>
+<title>CIS Debian 13 Audit - {{ cis_report_hostname | e }}</title>
 <style>
 :root {
   color-scheme: light dark;
@@ -203,10 +203,17 @@ summary { cursor: pointer; padding: 10px 14px; font-weight: 750; font-size: .8re
       <div class="eyebrow">Security compliance report</div>
       <h1>CIS Debian Linux 13 Audit</h1>
       <div class="meta">
-        <span><strong>Host:</strong> {{ inventory_hostname }}</span>
-        <span><strong>Profile:</strong> {{ cis_profile }}</span>
-        <span><strong>Generated:</strong> {{ ansible_date_time.iso8601 }}</span>
-        <span><strong>Benchmark:</strong> {{ cis_benchmark.version | default('1.0.0') }}</span>
+        <span><strong>Hostname:</strong> {{ cis_report_hostname | e }}</span>
+        <span><strong>FQDN:</strong> {{ cis_report_fqdn | e }}</span>
+        <span><strong>Primary IP:</strong> {{ cis_report_ip_address | e }}</span>
+        <span><strong>Operating system:</strong> {{ cis_report_distribution | e }} {{ cis_report_distribution_version | e }}</span>
+        <span><strong>Kernel:</strong> {{ cis_report_kernel | e }}</span>
+        <span><strong>Architecture:</strong> {{ cis_report_architecture | e }}</span>
+        <span><strong>Virtualization:</strong> {{ cis_report_virtualization_type | e }}</span>
+        <span><strong>Profile:</strong> {{ cis_profile | e }}</span>
+        <span><strong>Audit tool:</strong> {{ cis_audit_tool_version | e }}</span>
+        <span><strong>Generated:</strong> {{ cis_report_generated_at | e }}</span>
+        <span><strong>Benchmark:</strong> {{ cis_benchmark.version | default('1.0.0') | e }}</span>
       </div>
     </div>
     {% set scored_total = (cis_summary.pass | int) + (cis_summary.fail | int) + (cis_summary.error | int) %}
